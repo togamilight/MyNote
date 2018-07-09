@@ -51,4 +51,4 @@ function cancelBubble(e) {
 jQuery可以直接使用 `:odd/:even` 的形式来选择奇偶元素（CSS中为 `:nth-child(odd/even)`），不过jQuery的索引是从0开始的，所以奇偶和CSS的相反
 
 ### select标签
-`select` 标签有 `selectedIndex` 属性，默认为0，即选中第一项，通过 `value` 属性给 `select` 赋值会更新 `selectedIndex`，如果是赋不存在于 `option` 列表的值，则 `value` 会变成 `null`，`selectedIndex` 则是-1
+`select` 标签有 `selectedIndex` 属性，默认为0，即选中第一项，通过 `value` 属性给 `select` 赋值会更新 `selectedIndex`，如果是赋不存在于 `option` 列表的值，则 `value` 会变成 `null`，`selectedIndex` 则是-1。在IE10以下，`select` 没有默认值，除非在 `option` 添加属性 `selected="selected"`，或者将 `select`的`selectedIndex` 设为0。
