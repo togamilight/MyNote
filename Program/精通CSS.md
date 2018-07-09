@@ -271,3 +271,6 @@ html{
     filter: expression(document.execCommand("BackgroundImageCache", false, true));
 }
 ```
+Pixy方法可以更进一步，将整个网页的图片全都拼成一张，有效减少图片的服务器请求。
+
+# 第六章 对列表应用样式和创建导航条
