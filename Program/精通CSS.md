@@ -303,3 +303,20 @@ li{
 ## 6.7 简单的下拉菜单
 
 将子导航的列表嵌套进主导航的列表中，使用绝对定位，并将其定位与屏幕外使其隐藏，比如 `position: absolute; left: -999em;`，需要使其显示时再恢复其定位即可：`left: auto`；
+
+
+
+## 6.10 定义列表
+
+除了有序列表 `ol` 和无序列表 `ul`外，还有一种定义列表 `dl`，包含定义术语 `dt` 和一或多个定义描述 `dd`，例子：
+
+```html
+<dl>
+    <dt>Apple</dt>
+    	<dd>Fruit</dd>
+    	<dd>Red Or Green</dd>
+    <dt>Banana</dt>
+    	<dd>Fruit</dd>
+    	<dd>Yellow</dd>
+</dl>
+```
