@@ -4248,3 +4248,9 @@ var strDate1 = strDate.replace(/-/g, "/");
 ```
 
 推测原因：应该是使用形如“yyyy-MM-dd”的标准格式时间便是8点
+
+### StreamReader
+StreamReader使用后应该调用 `Close()/Dispose()` 进行关闭，关闭时会自动关闭对应的Stream
+
+### Sql Server的decimal
+decimal(位数,精度)，精度默认为0，既整数，要手动设置！EF中则默认是2位！
