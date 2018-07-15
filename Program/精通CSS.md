@@ -410,6 +410,23 @@ li{
 
 CSS3可以使用`column-count, column-width, column-gap, column-rule` 来创建文本列。（机制有点神秘，有时间再看看）
 
+# 第九章 BUG和修复BUG
+
+## 9.4 解决方法
+
+### IE条件注释
+
+条件注释是一种专有的（非标准的）对常规HTML注释的Microsoft扩展，能够根据条件（比如浏览器版本）显示代码块。虽然是非标准的，但它在其它浏览器是常规注释，是无影响的。通常用来处理**IE**特有的BUG。例子：
+```HTML
+<!--[if IE 8]-->
+...
+<![endif]-->
+
+<!-- 条件有多种，比如 -->
+[if IE], [if !IE], [if IE 8], [if lt IE 8], [if gte IE8]
+```
+
+
 # Tip
 
 ### 神奇的`overflow: hidden`
