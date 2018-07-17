@@ -65,13 +65,18 @@
     ```HTML
     <link href="/css/basic.css" rel="stylesheet" type="text/css" />
     ```
-3. 在CSS代码（`style`标签中或CSS文件中）中使用`@import`导入外部CSS文件
+3. 在CSS代码（`style`标签中或CSS文件中）中使用`@import`导入外部CSS文件(`@import`必须先于除`@charset`外的其它CSS规则)
     ```HTML
     <style type="text/css">
         @import url("/css/basic.css");  /*双引号加不加无所谓*/
+        @import "/css/basic.css";   /*或者这样*/
     </style>
     ```
 `import`要比`link`慢
+不推荐使用`@import`：
+1. `@import`混合js文件时，在IE中引发资源文件的下载顺序被打乱，即 使排列在`@import`后面的js文件先于`@import`下载，并且打乱甚至破坏`@import`自身的并行下载
+2. `<link>`混合`@import`会破坏并行下载，这是一个很严重的问题，这会导致原本并行下载的样式变成一个一个的同步下载
+3. 而仅仅使用`<link>` 可确保样式在所有浏览器里面都能被并行下载，并且按照顺序被下载
 
 把CSS文件分成多个会影响速度，且浏览器从同一域能下载的文件数量有限，老式浏览器通常是2个，现代浏览器8个（查了资料，这里应该指的是浏览器**最大并发请求资源数**，即同一域名下同一时间能请求的资源数量）。推荐使用单一CSS文件，还便于维护。
 
@@ -455,3 +460,6 @@ BFC（Block Formatting Context），块级格式化上下文，它规定了内�
 * overflow的值不为visible；
 * position的值为fixed / absolute；
 * display的值为table-cell / table-caption / inline-block / flex / inline-flex。
+
+### opacity和rgba的区别
+`opacity`作用于整个元素，而`rgba`作用于某个属性，比如`background-color`
