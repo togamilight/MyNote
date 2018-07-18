@@ -4254,3 +4254,44 @@ StreamReader使用后应该调用 `Close()/Dispose()` 进行关闭，关闭时�
 
 ### Sql Server的decimal
 decimal(位数,精度)，精度默认为0，既整数，要手动设置！EF中则默认是2位！
+
+### ASP.NET MVC 5 获取用户ip
+* 使用`Request.ServerVariables["HTTP_X_FORWARDED_FOR"]`可以获取请求经过的代理服务器IP列表，以逗号加空格隔开，如 clientIP, proxy1IP, proxy2IP...，**但最后一个转发请求的IP不在其中**。这其实是Http请求头中的X-Forwarded-For属性，容易被伪造
+* 使用`Request.ServerVariables["REMOTE_ADDR"]`获取和 Web 服务器握手的IP（即最终将请求发给服务器的机器的IP，不能伪造）？
+* ServerVariables所有属性列表：https://msdn.microsoft.com/zh-CN/Library/ms524602.aspx
+```CSharp
+// 获取ip地址
+private string GetIPAddress() {
+    string userIP =
+        string.IsNullOrEmpty(Request.ServerVariables["HTTP_X_FORWARDED_FOR"]) ?
+        Request.ServerVariables["REMOTE_ADDR"] : Request.ServerVariables["HTTP_X_FORWARDED_FOR"].Split(',')[0];
+    return string.IsNullOrEmpty(userIP) ? Request.UserHostAddress : userIP;
+}
+
+/// 获取ipv4地址，以上方法获取到的可能是ipv6，要用这个方法将其转换成ipv4地址
+private string GetIPv4() {
+    string ipAddr = GetIPAddress();
+    string ipv4 = null;
+
+    //如果是ipv4，获取了直接返回
+    foreach (IPAddress ip in Dns.GetHostAddresses(ipAddr)) {
+        if (ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork) {
+            ipv4 = ip.ToString();
+            break;
+        }
+    }
+
+    if (!string.IsNullOrEmpty(ipv4)) {
+        return ipv4;
+    }
+
+    //如果是ipv6，通过GetHostEntry由获取的 ipv6 位址反查 DNS 记录，再找出其中的ipv4地址返回
+    foreach (IPAddress ip in Dns.GetHostEntry(ipAddr).AddressList) {
+        if (ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork) {
+            ipv4 = ip.ToString();
+            break;
+        }
+    }
+    return ipv4;
+}
+```
