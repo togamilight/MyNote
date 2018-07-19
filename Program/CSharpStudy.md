@@ -4247,7 +4247,7 @@ new Date(srtDate);
 var strDate1 = strDate.replace(/-/g, "/");
 ```
 
-推测原因：应该是使用形如“yyyy-MM-dd”的标准格式时间便是8点
+推测原因：应该是使用形如“yyyy-MM-dd”时，得到UTC时间，并自动转换成北京时间，便是8点
 
 ### StreamReader
 StreamReader使用后应该调用 `Close()/Dispose()` 进行关闭，关闭时会自动关闭对应的Stream
@@ -4297,11 +4297,11 @@ private string GetIPv4() {
 ```
 
 ### C# Unix时间戳(毫秒)与DateTime的相互转换
-* Unix时间戳为某一时刻距**UTC/GMT*的**1970-01-01**所经过的**毫秒/秒数**
+* Unix时间戳为某一时刻距**UTC/GMT**的**1970-01-01**所经过的**毫秒/秒数**
 * Datetime转Unix时间戳：
     ```CSharp
     public static long ConvertToUnixTimeStamp(DateTime time){
-        //北京时间比**UTC/GMT**时间快8个小时，所以要根据时区换算时间
+        //北京时间比UTC/GMT时间快8个小时，所以要根据时区换算时间
         DateTime startTime = TimeZone.CurrentTimeZone.ToLocalTime(new System.DateTime(1970, 1, 1));
         return (time.Ticks - startTime.Ticks) / 10000;            //除10000调整为13位
     }
@@ -4310,7 +4310,7 @@ private string GetIPv4() {
 * Unix时间戳转Datetime：
     ```CSharp
     public static DateTime ConvertToDateTime(long unixTimeStamp) {
-        //北京时间比**UTC/GMT**时间快8个小时，所以要根据时区换算时间
+        //北京时间比UTC/GMT时间快8个小时，所以要根据时区换算时间
         DateTime startTime = TimeZone.CurrentTimeZone.ToLocalTime(new DateTime(1970, 1, 1));
         return startTime.AddMilliseconds(unixTimeStamp);
     }
