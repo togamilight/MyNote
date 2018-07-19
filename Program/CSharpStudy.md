@@ -4295,3 +4295,23 @@ private string GetIPv4() {
     return ipv4;
 }
 ```
+
+### C# Unix时间戳(毫秒)与DateTime的相互转换
+* Unix时间戳为某一时刻距**UTC/GMT*的**1970-01-01**所经过的**毫秒/秒数**
+* Datetime转Unix时间戳：
+    ```CSharp
+    public static long ConvertToUnixTimeStamp(DateTime time){
+        //北京时间比**UTC/GMT**时间快8个小时，所以要根据时区换算时间
+        DateTime startTime = TimeZone.CurrentTimeZone.ToLocalTime(new System.DateTime(1970, 1, 1));
+        return (time.Ticks - startTime.Ticks) / 10000;            //除10000调整为13位
+    }
+    ```
+    
+* Unix时间戳转Datetime：
+    ```CSharp
+    public static DateTime ConvertToDateTime(long unixTimeStamp) {
+        //北京时间比**UTC/GMT**时间快8个小时，所以要根据时区换算时间
+        DateTime startTime = TimeZone.CurrentTimeZone.ToLocalTime(new DateTime(1970, 1, 1));
+        return startTime.AddMilliseconds(unixTimeStamp);
+    }
+    ```
