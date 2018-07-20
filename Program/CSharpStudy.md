@@ -4315,3 +4315,19 @@ private string GetIPv4() {
         return startTime.AddMilliseconds(unixTimeStamp);
     }
     ```
+    
+### sql的子查询排序
+
+在sql的子查询中是不能排序的，例如：
+```sql
+SELECT * FROM (
+	SELECT * FROM table WHERE id > 20 ORDER BY userID DESC
+) AS a ORDER BY date DESC
+```
+以上sql语句会报错：**除非另外还指定了 TOP 或 FOR XML，否则，ORDER BY 子句在视图、内联函数、派生表、子查询和公用表表达式中无效**，这是因为子查询返回的不是一个表，而是一个**游标**
+解决办法：使用TOP(100) PERCENT 返回所有记录
+```sql
+SELECT * FROM (
+	SELECT TOP(100) PERCENT * FROM table WHERE id > 20 ORDER BY userID DESC
+) AS a ORDER BY date DESC
+```
