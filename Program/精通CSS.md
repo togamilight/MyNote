@@ -462,4 +462,19 @@ BFC（Block Formatting Context），块级格式化上下文，它规定了内�
 * display的值为table-cell / table-caption / inline-block / flex / inline-flex。
 
 ### opacity和rgba的区别
+
 `opacity`作用于整个元素，而`rgba`作用于某个属性，比如`background-color`
+
+### @font-face
+
+使用`@font-face`可以通过链接来使用字体，而无需用户机器安装该字体
+```css
+@font-face{
+    font-family: "myFont";  /*名称可自定义*/
+    src: url("xxx");
+}
+
+h1{
+    font-family: "myFont"， serif; /*指定备用字体*/
+}
+```
