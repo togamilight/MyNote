@@ -2871,7 +2871,7 @@ using (SqlConnection conn = new SqlConnection(connStr)) {
 
 T中的属性必须与必须与查询出来的语句完全一致，否则会出现异常，除非带有[NotMapped]注解，但是此时该属性即使有查到也不会被赋值
 
-###DbSet
+### DbSet
 
 * 在**DbContext**中，可以事先设定各个实体的**DbSet**，也可以通过**DbContext.Set<TEntity>()**动态设置,而且,如果事先已经设有该实体的**DbSet**属性,将会得到该属性而不会创建重复的!
 
@@ -2906,6 +2906,25 @@ using(var dbContext = new MyDbContext()){
 
 
 
+### LINQ中的GroupBy
+
+* 用多个key进行分组：`xSet.GroupBy(x => new{x.id, x.name})`
+
+* 获取组内第一条记录：`group.Select(g => g.FirstOrDefault())`
+
+* 组内排序：
+
+  * sql组内排序：`select * from (SELECT * from table ORDER BY id) as t GROUP BY key;`
+
+  * linq：`xSet.GroupBy(x => x.age).Select(g => new{key = g.Key, data = g.OrderBy(t => t.id)})`
+
+  * 对应的sql：
+
+    ```sql
+    {SELECT`Apply1`.`id`, `Apply1`.`CITY1` AS `city`, `Apply1`.`pinyin`, `Apply1`.`citycode`, `Apply1`.`date`, `Apply1`.`time`, `Apply1`.`postcode`, `Apply1`.`longitude`, `Apply1`.`latitude`, `Apply1`.`weather`, `Apply1`.`temp`, `Apply1`.`l_tmp`, `Apply1`.`h_tmp`, `Apply1`.`wd`, `Apply1`.`ws`, `Apply1`.`sunrise`, `Apply1`.`sunset`FROM (SELECT`Distinct1`.`city`, (SELECT`Project2`.`id`FROM `weather_record` AS `Project2` WHERE (`Distinct1`.`city` = `Project2`.`city`) OR ((`Distinct1`.`city` IS  NULL) AND (`Project2`.`city` IS  NULL)) ORDER BY `Project2`.`date` DESC LIMIT 1) AS `id`, (SELECT`Project2`.`city`FROM `weather_record` AS `Project2` WHERE (`Distinct1`.`city` = `Project2`.`city`) OR ((`Distinct1`.`city` IS  NULL) AND (`Project2`.`city` IS  NULL)) ORDER BY `Project2`.`date` DESC LIMIT 1) AS `CITY1`, (SELECT`Project2`.`pinyin`FROM `weather_record` AS `Project2` WHERE (`Distinct1`.`city` = `Project2`.`city`) OR ((`Distinct1`.`city` IS  NULL) AND (`Project2`.`city` IS  NULL)) ORDER BY `Project2`.`date` DESC LIMIT 1) AS `pinyin`, (SELECT`Project2`.`citycode`FROM `weather_record` AS `Project2` WHERE (`Distinct1`.`city` = `Project2`.`city`) OR ((`Distinct1`.`city` IS  NULL) AND (`Project2`.`city` IS  NULL)) ORDER BY `Project2`.`date` DESC LIMIT 1) AS `citycode`, (SELECT`Project2`.`date`FROM `weather_record` AS `Project2` WHERE (`Distinct1`.`city` = `Project2`.`city`) OR ((`Distinct1`.`city` IS  NULL) AND (`Project2`.`city` IS  NULL)) ORDER BY `Project2`.`date` DESC LIMIT 1) AS `date`, (SELECT`Project2`.`time`FROM `weather_record` AS `Project2` WHERE (`Distinct1`.`city` = `Project2`.`city`) OR ((`Distinct1`.`city` IS  NULL) AND (`Project2`.`city` IS  NULL)) ORDER BY `Project2`.`date` DESC LIMIT 1) AS `time`, (SELECT`Project2`.`postcode`FROM `weather_record` AS `Project2` WHERE (`Distinct1`.`city` = `Project2`.`city`) OR ((`Distinct1`.`city` IS  NULL) AND (`Project2`.`city` IS  NULL)) ORDER BY `Project2`.`date` DESC LIMIT 1) AS `postcode`, (SELECT`Project2`.`longitude`FROM `weather_record` AS `Project2` WHERE (`Distinct1`.`city` = `Project2`.`city`) OR ((`Distinct1`.`city` IS  NULL) AND (`Project2`.`city` IS  NULL)) ORDER BY `Project2`.`date` DESC LIMIT 1) AS `longitude`, (SELECT`Project2`.`latitude`FROM `weather_record` AS `Project2` WHERE (`Distinct1`.`city` = `Project2`.`city`) OR ((`Distinct1`.`city` IS  NULL) AND (`Project2`.`city` IS  NULL)) ORDER BY `Project2`.`date` DESC LIMIT 1) AS `latitude`, (SELECT`Project2`.`weather`FROM `weather_record` AS `Project2` WHERE (`Distinct1`.`city` = `Project2`.`city`) OR ((`Distinct1`.`city` IS  NULL) AND (`Project2`.`city` IS  NULL)) ORDER BY `Project2`.`date` DESC LIMIT 1) AS `weather`, (SELECT`Project2`.`temp`FROM `weather_record` AS `Project2` WHERE (`Distinct1`.`city` = `Project2`.`city`) OR ((`Distinct1`.`city` IS  NULL) AND (`Project2`.`city` IS  NULL)) ORDER BY `Project2`.`date` DESC LIMIT 1) AS `temp`, (SELECT`Project2`.`l_tmp`FROM `weather_record` AS `Project2` WHERE (`Distinct1`.`city` = `Project2`.`city`) OR ((`Distinct1`.`city` IS  NULL) AND (`Project2`.`city` IS  NULL)) ORDER BY `Project2`.`date` DESC LIMIT 1) AS `l_tmp`, (SELECT`Project2`.`h_tmp`FROM `weather_record` AS `Project2` WHERE (`Distinct1`.`city` = `Project2`.`city`) OR ((`Distinct1`.`city` IS  NULL) AND (`Project2`.`city` IS  NULL)) ORDER BY `Project2`.`date` DESC LIMIT 1) AS `h_tmp`, (SELECT`Project2`.`wd`FROM `weather_record` AS `Project2` WHERE (`Distinct1`.`city` = `Project2`.`city`) OR ((`Distinct1`.`city` IS  NULL) AND (`Project2`.`city` IS  NULL)) ORDER BY `Project2`.`date` DESC LIMIT 1) AS `wd`, (SELECT`Project2`.`ws`FROM `weather_record` AS `Project2` WHERE (`Distinct1`.`city` = `Project2`.`city`) OR ((`Distinct1`.`city` IS  NULL) AND (`Project2`.`city` IS  NULL)) ORDER BY `Project2`.`date` DESC LIMIT 1) AS `ws`, (SELECT`Project2`.`sunrise`FROM `weather_record` AS `Project2` WHERE (`Distinct1`.`city` = `Project2`.`city`) OR ((`Distinct1`.`city` IS  NULL) AND (`Project2`.`city` IS  NULL)) ORDER BY `Project2`.`date` DESC LIMIT 1) AS `sunrise`, (SELECT`Project2`.`sunset`FROM `weather_record` AS `Project2` WHERE (`Distinct1`.`city` = `Project2`.`city`) OR ((`Distinct1`.`city` IS  NULL) AND (`Project2`.`city` IS  NULL)) ORDER BY `Project2`.`date` DESC LIMIT 1) AS `sunset`FROM (SELECT DISTINCT `Extent1`.`city`FROM `weather_record` AS `Extent1`) AS `Distinct1`) AS `Apply1`}
+    ```
+
+    
 
 # 留言板系统
 
