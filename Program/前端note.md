@@ -41,11 +41,20 @@ function cancelBubble(e) {
     evt.cancelBubble = true;
   }
 }
+//类似的，阻止浏览器默认行为的代码
+function stopDefault(e) {
+  var evt = e || window.event;
+  if (evt.preventDefault) {          //W3C
+    evt.preventDefault();
+  }else {                             //IE
+    evt.returnValue  = false;
+  }
+}
 ```
 
 ### return false 与 阻止冒泡、阻止默认行为
 * 在事件函数中，使用`event.stopPropagation()`可以阻止事件冒泡，使用`event.preventDefault()`可以阻止浏览器默认行为。
-* 使用`return false`则可以同时达到两者的效果
+* 使用`return false`则可以同时达到两者的效果（**在IE中同样可用！**）
 
 ### jQuery的奇偶选择器
 jQuery可以直接使用 `:odd/:even` 的形式来选择奇偶元素（CSS中为 `:nth-child(odd/even)`），不过jQuery的索引是从0开始的，所以奇偶和CSS的相反

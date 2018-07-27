@@ -4266,10 +4266,87 @@ new Date(srtDate);
 var strDate1 = strDate.replace(/-/g, "/");
 ```
 
-推测原因：应该是使用形如“yyyy-MM-dd”的标准格式时间便是8点
+推测原因：应该是使用形如“yyyy-MM-dd”时，得到UTC时间，并自动转换成北京时间，便是8点
 
 ### StreamReader
 StreamReader使用后应该调用 `Close()/Dispose()` 进行关闭，关闭时会自动关闭对应的Stream
 
 ### Sql Server的decimal
 decimal(位数,精度)，精度默认为0，既整数，要手动设置！EF中则默认是2位！
+
+### ASP.NET MVC 5 获取用户ip
+* 使用`Request.ServerVariables["HTTP_X_FORWARDED_FOR"]`可以获取请求经过的代理服务器IP列表，以逗号加空格隔开，如 clientIP, proxy1IP, proxy2IP...，**但最后一个转发请求的IP不在其中**。这其实是Http请求头中的X-Forwarded-For属性，容易被伪造
+* 使用`Request.ServerVariables["REMOTE_ADDR"]`获取和 Web 服务器握手的IP（即最终将请求发给服务器的机器的IP，不能伪造）？
+* ServerVariables所有属性列表：https://msdn.microsoft.com/zh-CN/Library/ms524602.aspx
+```CSharp
+// 获取ip地址
+private string GetIPAddress() {
+    string userIP =
+        string.IsNullOrEmpty(Request.ServerVariables["HTTP_X_FORWARDED_FOR"]) ?
+        Request.ServerVariables["REMOTE_ADDR"] : Request.ServerVariables["HTTP_X_FORWARDED_FOR"].Split(',')[0];
+    return string.IsNullOrEmpty(userIP) ? Request.UserHostAddress : userIP;
+}
+
+/// 获取ipv4地址，以上方法获取到的可能是ipv6，要用这个方法将其转换成ipv4地址
+private string GetIPv4() {
+    string ipAddr = GetIPAddress();
+    string ipv4 = null;
+
+    //如果是ipv4，获取了直接返回
+    foreach (IPAddress ip in Dns.GetHostAddresses(ipAddr)) {
+        if (ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork) {
+            ipv4 = ip.ToString();
+            break;
+        }
+    }
+
+    if (!string.IsNullOrEmpty(ipv4)) {
+        return ipv4;
+    }
+
+    //如果是ipv6，通过GetHostEntry由获取的 ipv6 位址反查 DNS 记录，再找出其中的ipv4地址返回
+    foreach (IPAddress ip in Dns.GetHostEntry(ipAddr).AddressList) {
+        if (ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork) {
+            ipv4 = ip.ToString();
+            break;
+        }
+    }
+    return ipv4;
+}
+```
+
+### C# Unix时间戳(毫秒)与DateTime的相互转换
+* Unix时间戳为某一时刻距**UTC/GMT**的**1970-01-01**所经过的**毫秒/秒数**
+* Datetime转Unix时间戳：
+    ```CSharp
+    public static long ConvertToUnixTimeStamp(DateTime time){
+        //北京时间比UTC/GMT时间快8个小时，所以要根据时区换算时间
+        DateTime startTime = TimeZone.CurrentTimeZone.ToLocalTime(new System.DateTime(1970, 1, 1));
+        return (time.Ticks - startTime.Ticks) / 10000;            //除10000调整为13位
+    }
+    ```
+    
+* Unix时间戳转Datetime：
+    ```CSharp
+    public static DateTime ConvertToDateTime(long unixTimeStamp) {
+        //北京时间比UTC/GMT时间快8个小时，所以要根据时区换算时间
+        DateTime startTime = TimeZone.CurrentTimeZone.ToLocalTime(new DateTime(1970, 1, 1));
+        return startTime.AddMilliseconds(unixTimeStamp);
+    }
+    ```
+    
+### sql的子查询排序
+
+在sql的子查询中是不能排序的，例如：
+```sql
+SELECT * FROM (
+	SELECT * FROM table WHERE id > 20 ORDER BY userID DESC
+) AS a ORDER BY date DESC
+```
+以上sql语句会报错：**除非另外还指定了 TOP 或 FOR XML，否则，ORDER BY 子句在视图、内联函数、派生表、子查询和公用表表达式中无效**，这是因为子查询返回的不是一个表，而是一个**游标**
+解决办法：使用TOP(100) PERCENT 返回所有记录
+```sql
+SELECT * FROM (
+	SELECT TOP(100) PERCENT * FROM table WHERE id > 20 ORDER BY userID DESC
+) AS a ORDER BY date DESC
+```
