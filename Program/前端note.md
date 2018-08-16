@@ -61,3 +61,42 @@ jQuery可以直接使用 `:odd/:even` 的形式来选择奇偶元素（CSS中为
 
 ### select标签
 `select` 标签有 `selectedIndex` 属性，默认为0，即选中第一项，通过 `value` 属性给 `select` 赋值会更新 `selectedIndex`，如果是赋不存在于 `option` 列表的值，则 `value` 会变成 `null`，`selectedIndex` 则是-1。在IE10以下，`select` 没有默认值，除非在 `option` 添加属性 `selected="selected"`，或者将 `select`的`selectedIndex` 设为0。
+
+### CSS控制换行
+
+#### white-space
+
+`white-space` 设置如何处理元素中的空白：
+* `normal`: 合并连续的空白符（包括换行符），自动换行
+* `nowrap`: 合并连续的空白符（包括换行符），不换行
+* `pre`: 保留连续空白符，换行符换行，不自动换行
+* `pre-wrap`: 保留连续空白符，换行符换行，自动换行
+* `pre-line`: 合并连续空白符，换行符换行，自动换行
+
+#### overflow-wrap(word-wrap)
+
+两种等效，设置能否分割单词
+* `normal`: 只在单词结束时换行，若下个单词会溢出，则将其移到下一行；若一个单词大于一行，让其溢出
+* `break-word`: 若下个单词会溢出，则将其移到下一行；若一个单词大于一行，强制换行，分割单词
+
+#### word-break
+
+设置如何分割单词，应该是上面的加强版？
+* `normal`: 只在单词结束时换行，若下个单词会溢出，则将其移到下一行；若一个单词大于一行,让其溢出。对于CJK文本，可在任意字符间断行。
+* `break-all`: 强制换行，可在任意位置断开单词
+* `keep-all`: CJK 文本不断行。 Non-CJK 文本表现同`normal`。
+* `break-word`: 若下个单词会溢出，则将其移到下一行；若一个单词大于一行，强制换行，分割单词
+CJK 指中文/日文/韩文
+
+#### word-spacing
+
+设置空格的长度: normal或长度
+
+#### text-overflow
+
+设置文本溢出时如何处理，一般和 `white-space: nowrap`搭配使用。应该和 `overflow: hidden` 一起使用
+* `clip`: 默认，在容器边界处截断，可能截断字符的某个部分
+* `ellipsis`: 显示省略号
+* `clip`: 显示点 .
+* `"XXX"`: 显示自定义字符串
+* `fade`: 淡出效果，边缘完全透明
