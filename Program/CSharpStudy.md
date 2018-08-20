@@ -2869,7 +2869,15 @@ using (SqlConnection conn = new SqlConnection(connStr)) {
 
 ### DbContext.Database.SqlQuery<T>(string)
 
-T中的属性必须与必须与查询出来的语句完全一致，否则会出现异常，除非带有[NotMapped]注解，但是此时该属性即使有查到也不会被赋值
+T中的属性必须与必须与查询出来的语句完全一致，否则会出现异常，除非带有[NotMapped]注解，但是此时该属性即使有查到也不会被赋值。该方法返回`IEnumerable<T>`,是延迟查询，当使用到该结果时才执行查询
+
+### EF的事务与MSDTC
+* 在低与6.0的 EF 中不能指定SaveChanges时使用的事务
+* 使用`TransactionScope`为开启分布式事务，普通的事务作用于单个数据库连接，分布式事务可以作用于多个数据库连接。`TransactionScope`也可以当成简化的普通事务使用，它只有`Complete`方法，不用手动回滚
+* MSDTC是微软分布式传输协调程序，当使用多个数据库的分布式事务时，需要开启MSDTC；使用`TransactionScope`时，单个数据库的操作若通过不同通道比如`ExecuteSqlCommand`和`SaveChanges`混用，需要MSDTC（EF每次查询或者更新操作， **无论是`ExecuteSqlCommand` 还是`SaveChanges`，都是打开Connection，然后及时关闭**。所以，上面的事务是在多个连接的事务。在不支持多连接事务的数据库中，比如sql server 2005, 还是需要MSDTC）；（**这部分存疑，单数据库的多连接事务需要MSDTC是不是因为sql server 2005不支持多连接事务？还需要查证**）
+  * 在windows控制面版-->管理工具-->服务-->Distributed Transaction Coordinator-->属性-->启动
+  * 在CMD下运行"net start msdtc"开启服务。
+* 并行事务：指在同一个DBConnection中启用二个事务，这个不被ADO.NET与EF支持（目前）,如果程序运行过程中出现了Connection不支持并行事务的时候，检查一下是否在一个数据库连接中使用了二个事务。
 
 ### DbSet
 
