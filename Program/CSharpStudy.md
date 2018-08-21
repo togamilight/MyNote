@@ -4358,3 +4358,8 @@ SELECT * FROM (
 	SELECT TOP(100) PERCENT * FROM table WHERE id > 20 ORDER BY userID DESC
 ) AS a ORDER BY date DESC
 ```
+
+### Dispose 和 Close
+对于`Stream`对象，`Dispose`和`Close`是等价的（`Dispose`内部直接调用`Close`）；
+对于`SqlConnection`对象，调用`Close`关闭连接，但对象仍然是可用的，依旧能调用方法；调用`Dispose`则会重置对象状态（变为`NULL`？），在其上调用方法会抛出异常。因此，如果你只使用该对象一次，可以直接调用`Dispose`；
+使用`using`块可以自动调用实现了`IDispose`接口的对象的`Dispose`方法，大多数情况下只需要使用`using`块就够了。
