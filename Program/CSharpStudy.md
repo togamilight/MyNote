@@ -2889,6 +2889,13 @@ T中的属性必须与必须与查询出来的语句完全一致，否则会出�
 - 对于**SqlServer**，可以使用`System.Data.Entity.SqlServer` 命名空间中的`SqlFunctions.StringConvert(decimal?/double?).Trim()`，`Trim()`是去除前后空格
 - 但是MySql无法使用上述方法，但是也可以用`myInt + ""`来是数字变成字符串。。。。
 
+### Linq to Entities 中使用数据库函数
+
+* 如上面所说的，可以使用 `System.Data.Entity.SqlServer` 命名空间中的 `SqlFunctions` 类下的函数，但这个只适用于 **SQL Server** 数据库
+* 还可以使用 `System.Data.Objects` 中的 `EntityFunctions` 类下的函数，这是CLR层次的函数，能适用于不同数据源
+* 还有 `System.Data.Metadata.Edm` 下的规范函数，也可以使用于不同数据源，且 `System.Data.Metadata.Edm` 命名空间自动包含在所有查询中（待验证）
+* 这一部分有待继续查看资料，好像 `EntityFunctions` 下的就是规范函数？
+
 ### EF直接更新的方法
 
 Entry将会强制更新所有属性，性能会比较差
