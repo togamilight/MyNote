@@ -4358,8 +4358,8 @@ SELECT * FROM (
 	SELECT * FROM table WHERE id > 20 ORDER BY userID DESC
 ) AS a ORDER BY date DESC
 ```
-以上sql语句会报错：**除非另外还指定了 TOP 或 FOR XML，否则，ORDER BY 子句在视图、内联函数、派生表、子查询和公用表表达式中无效**，这是因为子查询返回的不是一个表，而是一个**游标**
-解决办法：使用TOP(100) PERCENT 返回所有记录
+以上sql语句会报错：**除非另外还指定了 TOP 或 FOR XML，否则，ORDER BY 子句在视图、内联函数、派生表、子查询和公用表表达式中无效**，这是因为子查询返回的不是一个表，而是一个**游标**  
+解决办法：使用TOP(100) PERCENT 返回所有记录  
 ```sql
 SELECT * FROM (
 	SELECT TOP(100) PERCENT * FROM table WHERE id > 20 ORDER BY userID DESC
@@ -4367,11 +4367,11 @@ SELECT * FROM (
 ```
 
 ### Dispose 和 Close
-对于`Stream`对象，`Dispose`和`Close`是等价的（`Dispose`内部直接调用`Close`）；
-对于`SqlConnection`对象，调用`Close`关闭连接，但对象仍然是可用的，依旧能调用方法；调用`Dispose`则会重置对象状态（变为`NULL`？），在其上调用方法会抛出异常。因此，如果你只使用该对象一次，可以直接调用`Dispose`；
+对于`Stream`对象，`Dispose`和`Close`是等价的（`Dispose`内部直接调用`Close`）；  
+对于`SqlConnection`对象，调用`Close`关闭连接，但对象仍然是可用的，依旧能调用方法；调用`Dispose`则会重置对象状态（变为`NULL`？），在其上调用方法会抛出异常。因此，如果你只使用该对象一次，可以直接调用`Dispose`；  
 使用`using`块可以自动调用实现了`IDispose`接口的对象的`Dispose`方法，大多数情况下只需要使用`using`块就够了。
 
 ### SQL 中的 JOIN ON 与 WHERE
 
-在SQL中，标准查询关键字的执行顺序为：**FROM->WHERE->GROUP BY->HAVING->ORDER BY**，而 JOIN ON 是在 FROM 范围内，所以是先根据 ON 中的条件筛选数据进行连接，生成临时表，再用 WHERE 中的条件过滤。
-不过，这只针对于**外连接**，因为外连接把条件放在 ON 中和 WHERE 中的语义是不同的；对于**内连接**，放在哪里是**没区别**的，SQL编译器将其转换为同样的执行计划
+在SQL中，标准查询关键字的执行顺序为：**FROM->WHERE->GROUP BY->HAVING->ORDER BY**，而 JOIN ON 是在 FROM 范围内，所以是先根据 ON 中的条件筛选数据进行连接，生成临时表，再用 WHERE 中的条件过滤。  
+不过，这只针对于**外连接**，因为外连接把条件放在 ON 中和 WHERE 中的语义是不同的，外连接，比如左连接的特点是：不过 ON 中的条件是否为真，都会返回左表的所有内容；对于**内连接**，放在哪里是**没区别**的，SQL编译器将其转换为同样的执行计划
