@@ -100,3 +100,11 @@ CJK 指中文/日文/韩文
 * `clip`: 显示点 .
 * `"XXX"`: 显示自定义字符串
 * `fade`: 淡出效果，边缘完全透明
+
+### IE中的事件
+
+在IE8及以下，对于事件`event`参数的处理与众不同，如下：
+```javascript
+var eve = event || window.event; //获取事件对象
+var objEle = eve.target || eve.srcElement; //获取被点击元素的引用
+```
