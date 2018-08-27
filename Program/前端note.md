@@ -105,6 +105,8 @@ CJK 指中文/日文/韩文
 
 在IE8及以下，对于事件`event`参数的处理与众不同，如下：
 ```javascript
-var eve = event || window.event; //获取事件对象
-var objEle = eve.target || eve.srcElement; //获取被点击元素的引用
+element.onclick = function(event){
+  var eve = event || window.event; //获取事件对象
+  var objEle = eve.target || eve.srcElement; //获取被点击元素的引用
+}
 ```
