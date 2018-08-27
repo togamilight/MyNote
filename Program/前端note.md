@@ -110,3 +110,32 @@ element.onclick = function(event){
   var objEle = eve.target || eve.srcElement; //获取被点击元素的引用
 }
 ```
+
+### IE浏览器实现遮罩
+IE8不支持`fixed`,这里使用`absolute`,IE8不支持`rgba`，要使用IE特有的滤镜实现透明背景
+```CSS
+.mask {
+  position: fixed;
+  position: absolute\9;   /*兼容IE8*/
+  top: 0;
+  left: 0;
+  bottom: 0;
+  right: 0;
+  width: 100%\9;    /*兼容IE8，IE8下设置四个方向的位置好像不能是其铺满容器，要设置宽高才行*/
+  height: 100%\9;
+  /*background: rgb(144, 144, 144);*/ /*兼容不支持rgba的浏览器，但是会覆盖滤镜*/
+  background-color: rgba(0,0,0,0.3);
+  filter: progid:DXImageTransform.Microsoft.gradient(startColorstr=#4c000000,endColorstr=#4c000000)\9; /*兼容IE8*/
+  z-index: 999;
+}
+```
+IE8设置了遮罩层之后，如果没有背景或背景透明（包括用滤镜），点击不会触发，而是直接穿过遮罩层，点击到其下的元素，把遮罩元素换为`iframe`可解决。
+滤镜颜色参数的前两位是透明度，与`rgba`中的透明度的值对应如下：
+
+|rgba   | 0.1 | 0.2 | 0.3 | 0.4 | 0.5 | 0.6 | 0.7 | 0.8 | 0.9 | 
+|-------|-----|-----|-----|-----|-----|-----|-----|-----|-----| 
+|filter | 19  | 33  | 4C  | 66  | 7F  | 99  | B2  | C8  | E5  |
+
+
+## CSS hack
+
