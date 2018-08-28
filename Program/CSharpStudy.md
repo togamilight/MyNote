@@ -2307,7 +2307,7 @@ Web API的参数绑定和mvc不同！
 
 # ADO.NET
 
-###简单介绍ADO.NET
+### 简单介绍ADO.NET
 
 ​	简单的讲，**ADO.NET是一组允许.NET开发人员使用标准的，结构化的，甚至无连接的方式与数据交互的技术。**对于ADO.NET来说，可以处理数据源是多样的。可以是应用程序唯一使用的创建在内存中数据，也可以是与应用程序分离，存储在存储区域的数据（如文本文件、XML、关系数据库等）。
 
@@ -2436,7 +2436,7 @@ key1=value1;key2=value2;key3=value3...
 
 
 
-#####连接字符串中可用的选项
+##### 连接字符串中可用的选项
 
 **Data Source/Server/Address/Addr/Network Address**：SQL Server实例的名称或网络地址。
 
@@ -2535,7 +2535,7 @@ string connStr = ConfigurationManager.ConnectionStrings["connStr"].ToString();
 
 
 
-#####属性
+##### 属性
 
 * **Database: **在连接打开之后获取当前数据库的名称，或在连接打开之前获取连接字符串中指定的数据库名。
 * **DataSource: **获取要连接的数据库服务器的名称。
@@ -2565,7 +2565,7 @@ string connStr = ConfigurationManager.ConnectionStrings["connStr"].ToString();
 
 
 
-###连接池
+### 连接池
 
 连接池就是一个容器：它存放了一定数量的与数据库服务器的物理连接
 
@@ -2610,7 +2610,7 @@ string connStr = ConfigurationManager.ConnectionStrings["connStr"].ToString();
 
 
 
-#####连接池异常与处理方法
+##### 连接池异常与处理方法
 
 当用户打开一个连接而没有正确或者及时的关闭时，经常会引发“连接泄露”问题。泄露的连接，会一直保持打开状态，直到调用Dispose方法，垃圾回收器（GC）才关闭和释放连接。与ADO不同，ADO.NET需要手动的关闭使用完的连接。**一个重要的误区是：当连接对象超出局部作用域范围时，就会关闭连接** 。实际上，当超出作用域时，**释放的只是连接对象而非连接资源。使用完的连接应当尽快的正确的关闭和释放**
 
@@ -2626,7 +2626,7 @@ string connStr = ConfigurationManager.ConnectionStrings["connStr"].ToString();
 
 
 
-###Command对象
+### Command对象
 
 **它封装了所有对外部数据源的操作（包括增、删、查、改等SQL语句与存储过程），并在执行完成后返回合适的结果。**都继承于DBCommand抽象类
 
@@ -2711,7 +2711,7 @@ string connStr = ConfigurationManager.ConnectionStrings["connStr"].ToString();
 
 
 
-#####性能剖析
+##### 性能剖析
 
 读取数据性能总结：
 
@@ -2802,7 +2802,7 @@ using (SqlConnection connection = new SqlConnection("")){
   } 
 ```
 
-###DataAdapter
+### DataAdapter
 
 ADO.NET提供了基于非连接的核心组件：DataSet。DataSet组件让我们可以很愉快地在内存中操作以表为中心的数据集合，就好比操作数据库中的表一样。**它为外部数据源与本地DataSet集合架起了一座坚实的桥梁，将从外部数据源检索到的数据合理正确的调配到本地的DataSet集合中**
 
@@ -2865,7 +2865,7 @@ using (SqlConnection conn = new SqlConnection(connStr)) {
 
 # Entity Framework
 
- ## Tips
+## Tips
 
 ### DbContext.Database.SqlQuery<T>(string)
 
@@ -4367,11 +4367,29 @@ SELECT * FROM (
 ```
 
 ### Dispose 和 Close
+
 对于`Stream`对象，`Dispose`和`Close`是等价的（`Dispose`内部直接调用`Close`）；  
+
 对于`SqlConnection`对象，调用`Close`关闭连接，但对象仍然是可用的，依旧能调用方法；调用`Dispose`则会重置对象状态（变为`NULL`？），在其上调用方法会抛出异常。因此，如果你只使用该对象一次，可以直接调用`Dispose`；  
+
 使用`using`块可以自动调用实现了`IDispose`接口的对象的`Dispose`方法，大多数情况下只需要使用`using`块就够了。
 
 ### SQL 中的 JOIN ON 与 WHERE
 
 在SQL中，标准查询关键字的执行顺序为：**FROM->WHERE->GROUP BY->HAVING->ORDER BY**，而 JOIN ON 是在 FROM 范围内，所以是先根据 ON 中的条件筛选数据进行连接，生成临时表，再用 WHERE 中的条件过滤。  
+
 不过，这只针对于**外连接**，因为外连接把条件放在 ON 中和 WHERE 中的语义是不同的，外连接，比如左连接的特点是：不过 ON 中的条件是否为真，都会返回左表的所有内容；对于**内连接**，放在哪里是**没区别**的，SQL编译器将其转换为同样的执行计划
+
+### SQL Server中的排序函数
+
+SQL Server有几个函数可以很方便地进行排序，如下：
+* ROW_NUMBER()：生成递增不重复的序号
+* RANK()：允许排名并列，序号不连续，后面的名次会算上并列的人数
+* DENSE_RANK()：允许排名并列，序号连续，后面的名次不受并列的影响，仍是加1
+* NTILE(n)：装桶排序，将数据排序后分成n个组，各组内数据的序号相同（即是该桶的序号）
+  * 每组的记录数不能大于它上一组的记录数，即编号小的桶放的记录数不能小于编号大的桶
+  * 所有组中的记录数要么都相同，要么从某一个记录较少的组（命名为X）开始，后面所有组的记录数都与该组（X组）的记录数相同。
+  * 具体：若记录能平均分为n组，则直接平分。若不能，则重复分出每组数目为 （总记录数/n）+1的组，直至能平均分为止。
+
+所有排序函数之后必须有 `OVER([PARTITION BY colname1] ORDER BY colname2)`，`PARTITION BY colname1` 为可选，表示按该列来分组，再进行组内排序。  
+排序序号从1开始
