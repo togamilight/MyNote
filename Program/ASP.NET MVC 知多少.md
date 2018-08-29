@@ -126,8 +126,10 @@ ViewModel 是一个包含将在强类型视图中展示的字段的类。它是�
 ## 路由机制
 
 路由是一种模式匹配系统，用来监视传入的请求并决定如何处理请求。在运行时，路由引擎使用**路由表**去匹配传入的请求的 Url，根据路由表定义的 Url 格式与传入的Url格式进行匹配。可以在 `Application_Start` 事件中注册一个或多个 Url 格式到路由表中。
+
 当路由引擎在路由表中找到一个与传入的 Url 请求匹配的路由记录，路由引擎会转发请求到对应的 Controller、Action 中。如果没有匹配的记录，则返回 404
 
+当 MVC 应用程序第一次启动时，global.asax 类中的 `Application_Start()` 方法调用 `RegisterRoutes()` 方法。`RegisterRoutes()` 方法负责创建了路由表
 ### 定义路由
 
 在 App_Start 文件夹下的 `RegisterRoutes.RegisterRoutes` 方法中配置，如下：
@@ -139,7 +141,9 @@ public class RouteConfig{
         routes.MapRoute(
             name: "Default",
             url: "{controller}/{action}/{id}",
-            defaults: new { controller = "Home", action = "Index", id = UrlParameter.Optional }
+            defaults: new { controller = "Home", action = "Index", id = UrlParameter.Optional },
+            //还可以用正则表达式约束参数
+            new { id = @"\d+" }
         );
     }
 }
@@ -149,11 +153,32 @@ public class RouteConfig{
 
 ### 特性路由
 
-ASP.NET MVC5 和 WEB API 2 支持一种新路由方式，叫做 **Attribute Routing（特性路由）**，用特性来定义路由，能够更好的控制URLs，支持直接在 Action 和 Controller 上定义路由。
+ASP.NET MVC5 和 WEB API 2 支持一种新路由方式，叫做 **Attribute Routing（特性路由）**，用特性来定义路由，能够更好的控制URLs，支持直接在 Action 和 Controller 上定义路由，使用了特性路由的 Controller 和 Action 将不再适用全局路由。
+
+#### 启用特性路由
+
+在 App_Start 文件夹下的 `RegisterRoutes.RegisterRoutes` 方法中添加 `routes.MapMvcAttributeRoutes();` 即可，要添加在全局路由定义之前，否则无法匹配到。
+
+#### 使用特性路由
 
 特性路由可以用于 Controller 或 Action, 如下:
 ```CSharp
-[RoutePrefix("MyHome")]     //可选，前缀，即Controller
-[Route("{action=index}")]   //default action
-public class HomeController : Controller{}
+[RouteArea("Admin")]        //可选，Area
+[RoutePrefix("MyHome")]     //可选，前缀，即 Controller
+[Route("{action=Index}")]   //可配置默认值，这里不能用 controller 参数
+public class HomeController : Controller{
+    public ActionResult Index(){}   //route: /Admin/MyHome
+    public ActionResult Login(){}   //route: /Admin/MyHome/Login
+
+    [Route("Num")]
+    public ActionResult GetNum(){} // route: /Admin/MyHome/Num, 如果没有控制器路由则是 /Num
+    [Route("~/Tel")]
+    public ActionResult GetTel(){} // route: /Tel
+}
 ```
+
+#### 与 URL 重写的区别
+
+路由和Url重写都可以用来定义出SEO友好型的URLS。但是它们的实现方式是十分不同的，主要区别在：
+* **URL重写**注重将一个URL映射到另一个URL。 而**路由**注重将一个URL映射到一个资源。
+* **URL重写**重写你的旧的URL到一个新的URL。而**路由**只是将URL映射到它对应的原始路由。
