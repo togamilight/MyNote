@@ -177,8 +177,210 @@ public class HomeController : Controller{
 }
 ```
 
-#### 与 URL 重写的区别
+### 与 URL 重写的区别
 
 路由和Url重写都可以用来定义出SEO友好型的URLS。但是它们的实现方式是十分不同的，主要区别在：
 * **URL重写**注重将一个URL映射到另一个URL。 而**路由**注重将一个URL映射到一个资源。
 * **URL重写**重写你的旧的URL到一个新的URL。而**路由**只是将URL映射到它对应的原始路由。
+
+# 三、视图引擎与HtmlHelper
+
+## ASP.NET MVC 重要命名空间
+
+* **System.Web.Mvc**：支持 ASP.NET WEB 应用程序的 MVC 模式，主要包括：Controllers, Controller Factories, Action Results, Views, Patial Views, Model Binders
+* **System.Web.Mvc.Ajax**：支持 Ajax 脚本以及 Ajax 选项设置
+* **Syetem.Web.Mvc.Html**：帮忙渲染 HTML 控件，主要用来支撑 Forms, Input Controls, Links, Patial Views, Validation
+
+## 视图引擎
+
+视图引擎是 MVC 的子系统，拥有自身的语义标记，负责转换服务器模板为 HTML 标记并渲染呈现到浏览器。有 Web Forms(.aspx，旧) 和 Razor(.cshtml，MVC3 引入) 两种，还有 Spark，NHaml 等第三方的。
+
+### 组成部分
+
+* **ViewEngine**：实现自 `IViewEngine` 接口，负责定位视图模板的位置
+* **View**：实现自 `IView` 接口，负责从当前上下文合并数据与模板并转换为输出的 HTML 标记
+* **模板解析引擎 (Template Parsing Engine)**：解析模板和编译视图为可执行代码
+
+### 自定义视图引擎
+
+可以通过实现 `ViewEngine` 接口或继承 `VirtualPathProviderViewEngine` 抽象类来实现自定义视图引擎
+
+```CSharp
+public class CustomViewEngine : VirtualPathProviderViewEngine {
+    public CustomViewEngine() {
+        //定义视图和分部视图的本地路径
+        this.ViewLocationFormats =
+            new string[] { "~/Views/{1}/{0}.html", "~/Views/Shared/{0}.html" };
+        this.PartialViewLocationFormats =
+            new string[] { "~/Views/{1}/{0}.html", "~/Views/Shared/{0}.html" };
+    }
+
+    protected override IView CreatePartialView(ControllerContext controllerContext, string partialPath) {
+        var physicalPath = controllerContext.HttpContext.Server.MapPath(partialPath);
+        return new CustomView(physicalPath);
+    }
+
+    protected override IView CreateView(ControllerContext controllerContext, string viewPath, string masterPath) {
+        var physicalpath = controllerContext.HttpContext.Server.MapPath(viewPath);
+        return new CustomView(physicalpath);
+    }
+}
+
+public class CustomView : IView {
+    private string viewPhysicalPath;
+
+    public CustomView(string ViewPhysicalPath) {
+        this.viewPhysicalPath = ViewPhysicalPath;
+    }
+
+    public void Render(ViewContext viewContext, TextWriter writer) {
+        //获取视图原始模板
+        string rawContent = File.ReadAllText(this.viewPhysicalPath);
+        //根据ViewData渲染模板
+        string parsedContent = Parse(rawContent, viewContext.ViewData);
+        writer.Write(parsedContent);
+    }
+
+    public string Parse(string content, ViewDataDictionary viewData) {
+        return Regex.Replace(content, "\\{(.+)\\}", m => GetMatch(m, viewData));
+    }
+
+    public virtual string GetMatch(Match m, ViewDataDictionary viewData) {
+        if (m.Success) {
+            string key = m.Result("$1");
+            if (viewData.ContainsKey(key)) {
+                return viewData[key].ToString();
+            }
+        }
+        return string.Empty;
+    }
+}
+```
+
+#### 注册自定义视图引擎
+
+在 global.asax.cs 文件的 `Application_Start()` 方法注册自定义视图引擎，告诉 ASP.NET MVC 使用自定义视图引擎替换默认的视图引擎
+```CSharp
+protected void Application_Start(){
+    ...
+    ViewEngines.Engines.Add(new CustomViewEngine());
+    ...
+}
+```
+
+#### 删除默认视图引擎
+
+```CSharp
+protected void Application_Start(){
+    //移除所有视图引擎包括 Webform 和 Razor
+    ViewEngines.Engines.Clear();
+}
+```
+
+### Razor 与 WebForm 引擎的区别
+
+| Razor | WebForm |
+|-------|---------|
+| MVC3 后引入 | 最初的 MVC 版本就引入 |
+| 位于 System.Web.Razor 命名空间 | 位于 System.Web.Mvc.WebFormViewEngine 命名空间 |
+| 状态管理技术（View State、Session） | 没有自动的状态管理 |
+| 基于文件路径的路由 | 基于路由的 Urls |
+| 统一的文件后缀 .cshtml（C#） | 视图后缀为 .aspx，分部视图或编辑模板为 .ascx |
+| View 与业务逻辑分离 | View 与业务逻辑紧耦合（.aspx，.aspx.cs） |
+| @Html.ActionLink("SignUp", "SignUp") | <%: Html.ActionLink("SignUp", "SignUp") %> |
+| 默认支持阻止 XSS 攻击 | 不支持 |
+| 不能通过拖拽控件进行布局 | 可以 |
+| 支持 TDD | 不支持 TDD |
+* TDD：测试驱动开发
+
+## HTML Helpers
+
+主要有三种：
+* **Inline Html Helpers**：通过 `@helper` 标签创建的帮助类，只能在同一个 View 中使用 
+    ```CSharp
+    @helper ListingItems(string [] items){
+        <ol>
+        @foreach(string item in items){
+            <li>@item</li>
+        }
+        </ol>
+    }
+
+    @ListingItems(new string[]{"C", "C++", "C#"})
+    ```
+* **Built-In Html Helpers**：是针对 `HtmlHelper` 的扩展方法，主要分为三类：
+    * **Standard Html Helpers**：用于渲染常见的 Html 元素：
+  
+| Razor | HTML |
+|-------|------|
+| `@Html.TextBox("tb1", "val")` | `<input id="tb1" name="tb1" type="text" value="val" />` |
+| `@Html.Password("pw1", "val")` | `<input id="pw1" name="pw1" type="password" value="val" />` |
+| `@Html.Hidden("hd1", "val")` | `<input id="hd1" name="hd1" type="hidden" value="val" />` |
+| `@Html.CheckBox("cb1", false)` | `<input id="cb1" name="cb1" type="checkbox" value="true" />` <br/> `<input name="myCheckbox" type="hidden" value="false" />` ? |
+| `@Html.RadioButton("rb1", "val", true)` | `<input id="rb1" name="rb1" type="radio" value="val" />` |
+| `Html.TextArea("ta1", "val", 5, 15, null)` | `<textarea cols="15" rows="5" id="ta1" name="ta1">val</textarea>` |
+| `@Html.DropDownList("ddl1", new SelectList( new []{"Male", "Female"} ))` | `<select id="ddl1" name="ddl1"><option>Male</option><option>Female</option></select>` |
+| `@Html.ListBox("lb1", new MultiSelectList( new []{"Male", "Female"} ))` | `<select id="lb1" name="lb1" multiple="multiple"><option>Male</option><option>Female</option></select>` |
+
+* 
+  * **Strongly Typed Html Helpers**：基于 model 属性创建的强类型 Html 元素，主要通过 Lambda 表达式来创建。就是将上一种方法的 id/name 参数部分换成 Lambda 表达式， 返回 model 的某个属性，生成的 Html 的 id/name 是属性名称， value 是属性的值
+  * **Templated Html Helpers**：自动根据 model 类的属性类型特性去呈现适当的 Html 元素。比如，model 的属性使用 `[DataType(DataType.Password)]` 特性，当使用模板Html帮助类时，自动呈现为密码类型的文本框
+    * Display \ DisplayFor：根据指定的 model 属性和基于 model 属性的数据类型和元数据选择一个合适的html标签去渲染**只读状态的视图**。
+    * Editor \ EditorFor：根据指定的 model 属性和基于 model 属性的数据类型和元数据选择一个合适的html标签去渲染**编辑状态的视图**。
+* **Custom Html Helpers**：可以通过扩展 `HtmlHelper` 类或在工具类中创建静态方法来创建自定义 Html Helper
+    ```CSharp
+    public static class CustomHelper{
+        public static MvcHtmlString SubmitButton(this HtmlHelper helper, string buttonText){
+            string str = "<input type=\"submit\" value=\""+ buttonText +"\" />";
+            return new MvcHtmlString(str);
+        }
+
+        public static MvcHtmlString TextBoxFor<TModel, TValue>(this HtmlHelper<TModel> htmlHelper, Expression<Func<TModel, TValue>>expression, bool isReadOnly){
+            MvcHtmlString html = default(MvcHtmlString);
+            if(isReadOnly){
+                html = System.Web.Mvc.Html.InputExtension.TextBoxFor(helper, expression, new { @class = "readOnly", @readonly = "read-only" });
+            }else{
+                html = System.Web.Mvc.Html.InputExtensions.TextBoxFor(helper, expression);
+            }
+            return html;
+        }
+    }
+    ```
+
+## Url Helpers
+
+Url Helpers 基于路由配置帮助我们去渲染 HTML 链接或生成 URL，如：
+|Razor|HTML|
+|-----|----|
+| `@Url.Content("~/Files/xx.pdf")` | `/Files/xx.pdf` |
+| `@Html.ActionLink("About Us", "About", "Home")` | `<a href="/Home/About">About Us</a>` |
+| `@Html.ActionLink("About Me", "About", "Home", "http", "www.xxx.com", null, null, null)` | `<a href="http://www.xxx.com/Home/About">About Me</a>` |
+| `@Url.Action("About", "Home")` | `/Home/About` |
+
+## Validation Summary
+
+**Validation Summary** 用来显示 ModelState 字典中所有验证错误信息（未经排序）。`@Html.ValidationSummary(arg)` 接收一个 bool 参数，当为 **true** 只显示 **Model-Level** 错误，当为 **false** 显示 **Model-Level** 和 **Property-Level** 错误。  
+可以在 **Controller** 使用 `ModelState.AddModelError("propertyName", "errorMsg");` 手动添加错误信息，第一个参数为 `""` 则是 **Property-Level** 错误。
+
+## Ajax Helpers
+
+用来创建启用 Ajax 进行异步加载的元素比如 Ajax Form，Ajax 链接。 Ajax Helpers 是 `System.Web.Mvc` 命名空间中 `AjaxHelper` 类的扩展方法。
+
+```CSharp
+@Ajax.ActionLink("LoadInfo", "GetInfo", new AjaxOptions{UpdateTargetId="InfoContainer", HttpMethod="GET"})
+//Html
+<a data-ajax="true" data-ajax-method="GET" data-ajax-mode="replace" 
+data-ajax-update="#InfoContainer" href="/Home/GetInfo">LoadInfo</a>
+```
+
+### 非侵入Ajax (Unobtrusive Ajax)
+
+ ASP.NET MVC 提供了基于 jQuery 的非侵入 Ajax。非侵入式 Ajax 意味着通过使用帮助类方法去定义 Ajax 功能而不是通过在 View 中添加 js 代码块。
+
+### AjaxHelper 配置选项
+
+`AjaxOptions` 类定义的属性允许你在 Ajax 请求的生命周期中的不同阶段指定对应的回调方法。(https://www.jianshu.com/p/4ccb941357b6)
+
+### 跨域Ajax (Cross Domain Ajax)
+
+默认来说，浏览器只允许 Ajax 调用你自己服务器上托管的当前 WEB 应用的站点。这个限制帮助阻止了许多安全问题（比如 XSS 攻击）。但是有些时候我们需要与额外的 API 交互，我们的 WEB 应用就必须支持 JSONP 请求或 CORS（跨域资源分享）。ASP.NET MVC 默认不支持 JSONP 和 CORS，需要做一些编码和配置。
