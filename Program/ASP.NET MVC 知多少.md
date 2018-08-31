@@ -384,3 +384,20 @@ data-ajax-update="#InfoContainer" href="/Home/GetInfo">LoadInfo</a>
 ### 跨域Ajax (Cross Domain Ajax)
 
 默认来说，浏览器只允许 Ajax 调用你自己服务器上托管的当前 WEB 应用的站点。这个限制帮助阻止了许多安全问题（比如 XSS 攻击）。但是有些时候我们需要与额外的 API 交互，我们的 WEB 应用就必须支持 JSONP 请求或 CORS（跨域资源分享）。ASP.NET MVC 默认不支持 JSONP 和 CORS，需要做一些编码和配置。
+
+# 四、布局页 Layout
+
+**布局页**用来使 Views 保持一致的外观体验。  
+使用布局页：在 View 的顶部直接声明 `@{Layout = "~/Views/Shared/XXXLayout.cshtml"}`  
+
+## Section
+
+通过 Section 可以在 Layout 中指定占用一块内容区域。可以在 View 中按以下方式定义:
+```CSharp
+//在 View 中定义
+@section header{ <h1>Header</h1> }
+//在 Layout 中渲染
+@RenderSection("header", required: false)
+```
+默认的，在layout中定义了需要渲染的 Section，那么在 View 中就必须实现，除非像上面一样，设置第二个参数为 `false`，表示该 Section 是可选的。  
+且 View 中只能定义已经在 Layout 中指定渲染的 Section
