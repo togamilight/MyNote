@@ -1,3 +1,5 @@
+https://www.jianshu.com/p/5f6156cacc76
+
 # 一、 基本概念
 
 ## MVC
@@ -399,5 +401,115 @@ data-ajax-update="#InfoContainer" href="/Home/GetInfo">LoadInfo</a>
 //在 Layout 中渲染
 @RenderSection("header", required: false)
 ```
-默认的，在layout中定义了需要渲染的 Section，那么在 View 中就必须实现，除非像上面一样，设置第二个参数为 `false`，表示该 Section 是可选的。  
+默认的，在 Layout 中定义了需要渲染的 Section，那么在 View 中就必须实现，除非像上面一样，设置第二个参数为 `false`，表示该 Section 是可选的。  
 且 View 中只能定义已经在 Layout 中指定渲染的 Section
+
+## @RenderBody()
+
+`@RenderBody()` 在 Layout 页中调用，将使用了该 Layout 的子页面的内容渲染到页面中，每个 Layout 只能有一个 `@RenderBody()`
+
+## @RenderPage(url)
+
+同样在 Layout 页中调用，渲染 URL 的页面到 Layout 中，可以有多个。
+
+## @Styles.Render(url) / @Scripts.Render(url)
+
+打包压缩 JS/CSS 文件，提高网络加载速度和页面解析速度，url 代表的文件在 BundleConfig.cs 中配置
+```CSharp
+public class BundleConfig{
+    public static void RegisterBundles(BundleCollection bundles){
+        bundles.Add(new ScriptBundle("~/bundles/jqueryval")
+            .Include("~/Scripts/jquery.unobtrusive*", "~/Scripts/jquery.validate*"));
+        bundles.Add(new StyleBundle("~/Content/themes/base/css").Include(
+            "~/Content/themes/base/jquery.ui.core.css", "~/Content/themes/base/jquery.ui.resizable.css"));
+    }
+}
+```
+当关闭优化时，`Styles.Render` 和 `Scripts.Render` 会为 StyleBundle（ScriptBundle）中的定义的每一个 CSS（Script）生成一个 Style（Script）标签。当开启优化时，`Styles.Render` 和 `Scripts.Render` 生成唯一的 Style和 Script标签，其中带有版本戳的 URL 代表整个捆绑的 CSS 和 Script。
+
+### 启用捆绑优化
+
+通过在 Global.asax.cs 文件中修改 BundleTable 的 EnableOptimizations 属性来打开和关闭捆绑优化。（默认应该是打开的）
+```CSharp
+protected void Application_Start(){
+    System.Web.Optimization.BundleTable.EnableOptimizations = false;
+}
+```
+
+## _ViewStart.cshtml
+
+_ViewStart.cshtml 中的代码会在同文件夹下（包括子文件夹）的所有 View 的代码之前执行，可以用来为一系列 View 添加相同的设置操作。默认的，Views 文件夹下有一个 _ViewStart.cshtml，为所有 View 设定同一个布局。
+```CSharp
+@{ Layout = "~/Views/Shared/Layout.cshtml"; }
+```
+
+## App_Start 文件夹
+
+App_Start 文件夹是从 MVC4 引入的，包含以下配置文件，比如 BundleConfig.cs, FilterConfig.cs, RouteConfig.cs, WebApiConfig.cs。所有的设置都是在 Global.asax.cs 文件的 Application_Start 方法中被注册。
+
+* **BundleConfig.cs**：用来为 CSS 和 JS 文件创建和注册捆绑。默认已经包含了对 jQuery, jQueryUI, jQuery Validation, Modernizr, Site CSS 的捆绑。
+* **FilterConfig.cs**：用来注册全局的 MVC 过滤器，比如 error filters, actions filters 等。默认包含 HandleErrorAttribute 过滤器。
+* **RouteConfig.cs**：用来注册不同的路由模式，默认仅注册一个名为 Default 的路由。
+* **WebApiConfig.cs**：用来注册不同的 WEB API 路由，也可用来设置额外的 WEB API 配置选项。
+
+## 返回 View 的方式
+
+* **return View()**：生成指定的视图的 HTML 并发送到浏览器。相当于 ASP.NET WebForm 中的 Server.Transfer()。是转发，浏览器显示的地址不会改变。
+* **return RedirectToAction()**：跳转到指定的 Action 执行而不是直接提供 HTML。浏览器将收到跳转通知并重新发送一个指定 Action 的新请求，即重定向。这个类似于 ASP.NET WebForm 中的 `Response.Redirect()`。而且， `RedirectToAction` 会根据路由表构造了一个跳转 URL 到指定的 Action/Controller，会使浏览器收到 302 重定向状态码。
+* **return Redirect()**：跳转到指定的 URL 而不是直接提供 HTML。类似上一个，只是你需要自己构造完整的URL去进行重定向。浏览器同样会收到 302 重定向状态码。
+* **return RedirectToRoute()**：在路由表中查找指定的路由，然后重定向到路由中定义的 Controller/Action。这也是重定向。
+
+# 五、 页面传值方式；HTTP 请求与 Action 的映射
+
+## 页面传值
+
+### ViewData
+
+* ViewData 是 Controller 的属性，是 ViewDataDictionary 类的一个实例。
+* ViewData 用来从 Controller 中传值到相对应的 View 中。
+* 生命周期仅存在于当前此次请求。
+* 如果发生重定向，那么值将会被清空。
+* 从 ViewData 中取值时需要进行**类型转换**和 **Null Check** 以避免异常。
+
+### ViewBag
+
+* ViewBag 是 Controller 的一个动态属性（dynamic），是基于C# 4.0的动态语言的特性。
+* 是对 ViewData 的一次包装，也是用来从 Controller 中传值到相对应的 View 中。
+* 生命周期仅存在于当前此次请求。
+* 如果发生重定向，那么值将会被清空。
+* 从 ViewBag 中取值时不需要进行类型转换。
+
+### TempData 
+
+https://www.jianshu.com/p/eb7a301bc536
+
+* TempData 是 Controller 的属性，是 TempDataDictionary 类的示例，存储于Session中。
+* TempData 用来进行跨页面请求传值。
+* TempData 被请求后生命周期即结束。
+* 从 TempData 中取值时需要进行**类型转换**和 **Null Check** 以避免异常。
+* 主要用来存储一次性数据信息，比如 error messages, validation messages。
+
+#### 工作流程
+
+1. TempData 保存在 Session 中，Controller 每次执行请求时，会从 Session 中一次获取所有 TempData 数据，保存在单独的内部数据字典中，而后从 Session 中清除。  
+2. 然后在 Action 执行过程中，通过 Key 从字典中获取对应的 Value，每访问一次后对应的 Key-Value 就会从字典中删除，因此 TempData 数据最多只能经过一次 Controller 传递，并且每个元素最多只能访问一次。  
+3. Action 执行完时，新的和未使用的 TempData 重新保存到 Session 中（即将内存中的 TempData 保存到 Session 中）。
+
+* 如果想把数据保留到下一次请求，可以调用 `TempData.Keep()` 或 `TempData.Keep("key")`。或者，使用 `TempData.Peek("key")` 进行读取
+
+### Session
+
+* ASP.NET MVC 中 Session 是 Controller 中的一个属性，Session 是 HttpSessionStateBase 类型。
+* Session 保存数据直到用户会话结束（默认 Session 过期时间为 20mins）。
+* Session 对所有的请求都有效，不仅仅是单一的跳转。
+* 从 Session 中取值时需要进行**类型转换**和 **Null Check** 以避免异常。
+
+#### 控制 Session
+
+不过 Session 里有没有数据，ASP.NET MVC 都必须为所有的 Controller 管理  Session State，存储在服务器内存中，会影响性能，可以使用特性 `[SessionState(SessionStateBehavior)]` 来控制某个 Controller 中 Session 的行为：
+* **Default**：默认行为
+* **Disabled**：完全关闭
+* **ReadOnly**：只读
+* **Required**：完全可读写的
+
+由于 TempData 存储于 Session 中，如果关闭了 Session，将无法使用 TempData
