@@ -513,3 +513,31 @@ https://www.jianshu.com/p/eb7a301bc536
 * **Required**：完全可读写的
 
 由于 TempData 存储于 Session 中，如果关闭了 Session，将无法使用 TempData
+
+## Action
+
+### ActionResult
+
+* **ViewResult**：`View()` ，用来呈现指定或默认的视图
+* **PartialViewResult**：`PartialView()`，用来呈现指定或默认的分部视图
+* **RedirectResult**：`Redirect()`，发起一个 HTTP 301 或 302 到指定 URL 的跳转（重定向）
+* **RedirectToRouteResult**：`RedirectToAction(), RedirectToActionPermanent(), RedirectToRoute(), RedirectToRoutePermanent()`，发起一个 HTTP 301 或 302 到指定 Action 或者路由的跳转
+* **ContentResult**：`Content()`，呈现指定的文本
+* **JsonResult**：`Json()`，呈现序列化的 JSON 格式数据
+* **JavaScriptResult**：`JavaScript()`，呈现一段 JavaScript 代码，一般仅用于 Ajax 请求的场景
+* **FileResult**：`File()`，呈现文件内容
+* **EmptyResult**：`new EmptyResult()`，空结果
+* **HttpNotFoundResult**：`HttpNotFound()`，返回一个 HTTP 404 状态码
+* **HttpUnauthorizedResult**：`new HttpUnauthorizedResult()`，返回一个 HTTP 401 状态码（未认证），用来要求用户登录以完成认证
+* **HttpStatusCodeResult**：`new HttpStatusCodeResult()`，返回指定的 HTTP 状态码
+
+### Action 相关特性
+
+* `[NonAction]`：防止一个公共方法被暴露为 Action
+* `[ActionName("Name")]`：为一个 Action 方法改名
+* `[HttpGet]`：为 Action 限制访问方式（GET, POST, PUT, DELETE）
+
+### 判断 Action 被访问方式
+
+* `Request.HttpMethod`：判断是被哪种 HTTP 请求调用
+* `Request.IsAjaxRequest()`：是否为 Ajax 请求
