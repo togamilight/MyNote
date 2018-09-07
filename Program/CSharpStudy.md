@@ -4393,3 +4393,15 @@ SQL Server有几个函数可以很方便地进行排序，如下：
 
 所有排序函数之后必须有 `OVER([PARTITION BY colname1] ORDER BY colname2)`，`PARTITION BY colname1` 为可选，表示按该列来分组，再进行组内排序。  
 排序序号从1开始
+
+### SQL IN 与 EXISTS
+IN 用来判断某个属性是否存在于集合中，如:  
+`select * from #t1 where c2 not in(select c2 from #t2);`  
+EXISTS 用于判断子查询中是否有返回结果（是否有行），如：  
+`select * from #t1 where not exists(select 1 from #t2 where #t2.c2=#t1.c2)`
+
+IN 是把外表和内表作 hash 连接，而 EXISTS 是对外表作 loop 循环，每次循环再对内表进行查询，如果查询的两个表大小相当，那么用 IN 和 EXISTS 差别不大；如果两个表中一个较小一个较大，则子查询表大的用 EXISTS，子查询表小的用 IN （待验证！）
+
+如果查询语句使用了 NOT IN，那么对内外表都进行全表扫描，没有用到索引；而NOT EXISTS 的子查询依然能用到表上的索引。所以无论哪个表大，用 NOT EXISTS 都比 NOT IN 要快。
+
+而且，NOT IN 有 BUG，如果集合中含有 NULL，则判断总是 false 的；因为 NOT IN 将字段与集合中的所有元素比较，全都不相等才返回 true，而 NULL 值与其它值的 **=/<>** 的比较都返回 NULL，所以会出错。
