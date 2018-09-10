@@ -664,3 +664,160 @@ protected void Appication_Start(){
 }
 ```
 必须在最开始注册 Area，以便注册的 Settings、Filters、Routes 能作用于 Area
+
+# 八、过滤器
+
+ASP.NET MVC 通过特性的方式来给 Controller 或 Action 添加过滤器，在 Action 执行前或后执行一些操作。自定义过滤器需要继承 `FilterAttribute` 或实现 `IMvcFilter`。
+
+## ASP.NET MVC 中的过滤器
+
+* **AuthenticationFilter**：认证过滤器，实现 `IAuthenticationFilter` 即可创建自定义认证过滤器
+    ```CSharp
+    public interface IAuthenticationFilter{
+        void OnAuthentication(AuthenticationContext filterContext);
+        void OnAuthenticationChallenge(AuthenticationChallengeContext filterContext);
+    }
+    ```
+* **Authorization Filter**：授权过滤器，实现 `IAuthorizationFilter` 接口或继承 `AuthorizeAttribute` 类并重写虚方法
+    ```CSharp
+    public interface IAuthorizationFilter{
+        void OnAuthorization(AuthorizationContext filterContext);
+    }
+
+    //AuthorizeAttribute 中的虚方法
+    protected virtual bool AuthorizeCore(HttpContextBase httpContext);
+    protected virtual void HandleUnauthorizedRequest(AuthorizationContext filterContext);
+    public virtual void OnAuthorization(AuthorizationContext filterContext);
+    protected virtual HttpValidationStatus OnCacheAuthorization(HttpContextBase httpContext);
+    ```
+* **ActionFilter**：操作过滤器，在 Action 执行之前和之后执行，实现 `IActionFilter` 接口
+    ```CSharp
+    public interface IActionFilter{
+        void OnActionExecuting(ActionExecutingContext filterContext);
+        void OnActionExecuted(ActionExecutedContext filterContext);
+    }
+    ```
+* **ResultFilter**：结果过滤器，在 Action 生成结果之前和之后执行，在 ActionFilter 之后调用。实现 `IResultFilter` 接口
+    ```CSharp
+    public interface IResultFilter{
+        void OnResultExecuted(ResultExecutedContext filterContext);
+        void OnResultExecuting(ResultExecutingContext filterContext);
+    }
+    ```
+* **ExceptionFilter**：异常过滤器，实现 `IExceptionFilter` 接口
+    ```CSharp
+    public interface IExceptionFilter{
+        void OnException(ExceptionContext filterContext);
+    }
+    ```
+    默认的异常过滤器是 `HandleErrorAttribute`，处理后返回 /Views/Shared 文件夹下的 Error 视图
+
+## 过滤器执行顺序
+
+1. AuthenticationFilter
+2. AuthorizationFilter
+3. ActionFilter
+4. ResultFilter
+
+## 配置过滤器
+
+过滤器的作用范围分为三个级别：
+
+1. Global
+   在 Global.asax.cs 文件的 `Application_Start` 方法中注册
+    ```CSharp
+    protected void Application_Start(){
+        FilterConfig.RegisterGlobalFilters(filter);
+    }
+    ```
+2. Controller
+   添加特性到 Controller 上
+3. Action
+   添加特性到 Action 上
+
+## 表单认证和授权工作流程
+
+表单认证在 IIS 认证完成之后发生，在 Web.config 文件中的 forms 节点进行配置。默认配置如下：
+```xml
+<system.web>
+<authentication mode="Forms">
+<forms loginUrl="login.cshtml" protection="All" timeout="30" name=".ASPXAUTH" path="/" requireSSL="false" slidingExpiration="true" defaultUrl="default.cshtml" cookieless="UseDeviceProfile" enableCrossAppRedirects="false"/>
+</authentication>
+</system.web>
+```
+
+用户通过登录页面发送登录数据，服务器从数据库中获取数据校验登录数据是否正确，登录成功时设置 Cookie 并重定向到首页，当 `SetAuthCookie()` 或 `RedirectFromLoginPage()` 被调用时 `FormsAuthentication` 类自动创建认证 Cookie。认证 Cookie 中包含一个已经加密和签名的 `FormsAuthenticationTicket` 对象的字符串。  
+可以指定 Cookie 的名称、版本、目录路径、生效日期、失效日期、是否永久等属性来创建 `FormsAuthenticationTicket` 对象：
+```CSharp
+var ticket = new FormsAuthenticationTicket(1, "userName", DateTime.Now, DateTime.Now.AddMinutes(30), false, string.Empty, FormsAuthentication.FormsCookiePath);
+```
+然后就可以使用 `FormsAuthentication` 类的 `Encrypt` 方法来加密ticket。
+`string encryptedTicket = FormsAuthentication.Encrypt(ticket);`
+
+## 自定义表单认证和授权
+(这部分讲得不是很清楚，待以后补充)
+
+### 认证
+
+一个用户上下文中有一个 Principal，代表了用户的身份（Identity）和角色（Role），用户通过身份进行认证，通过给用户分配角色进行授权。
+
+ASP.NET 提供了 `IPrincipal` 和 `IIdentity` 接口来表示用户的身份和角色，这两个接口绑定到 `HttpContext` 对象和当前线程，通过实现这两个接口来自定义表单认证和授权：
+```CSharp
+public class CustomPrincipal : IPrincipal{
+    public IIdentity Identity {get; private set;}
+    public bool IsInRole(string role){
+        if(roles.Any(r => role.Contains(r))){
+            return true;
+        }
+        return false;
+    }
+    public CustomPrincipal(string Username){
+        this.Identity = new GenericIdentity(Username);
+    }
+    public int UserId {get; set;}
+    public string UserName {get; set;}
+    public string[] roles {get; set;}
+}
+```
+可以把 `CustomPrincipal` 对象放入 `Thread.CurrentPrincipal` 属性和 `HttpContext.User` 属性来完成自定义的认证和授权流程。  
+如果 `CustomPrincipal.Identity.IsAuthenticated` 返回 true 则表示认证成功
+
+### 授权
+
+通过继承 `AuthorizeAttribute` 类并重写 `OnAuthorization()` 方法来自定义授权过滤器：
+```CSharp
+public class CustomAuthorizeAttribute: AuthorizeAttribute {
+    protected virtual CustomPrincipal CurrentUser {
+        get {
+            return HttpContext.Current.User as CustomPrincipal;
+        }
+    }
+    public override void OnAuthorization(AuthorizationContext filterContext) {
+        if (filterContext.HttpContext.Request.IsAuthenticated) {
+            if (!String.IsNullOrEmpty(Roles)) {
+                if (!CurrentUser.IsInRole(Roles)) {
+                    filterContext.Result = new RedirectToRouteResult(new RouteValueDictionary(new {
+                        controller = "Error",
+                        action = "AccessDenied"
+                    }));
+                }
+            }
+            if (!String.IsNullOrEmpty(Users)) {
+                if (!Users.Contains(CurrentUser.UserId.ToString())) {
+                    filterContext.Result = new RedirectToRouteResult(new RouteValueDictionary(new {
+                        controller = "Error",
+                        action = "AccessDenied"
+                    }));
+                    // base.OnAuthorization(filterContext); //returns to login url
+                }
+            }
+        }
+    }
+}
+```
+
+## 允许输入 HTML 字符
+
+ASP.NET MVC 默认不允许用户去提交 HTML，避免跨域脚本（XSS）攻击。  
+在 Action 或 Controller 使用 `[ValidateInput(false)]` 特性可以启用或禁止输入校验。但这样会是所有参数都不进行校验。
+可以在 Model 的某个属性使用 `[AllowHtml]` 特性来允许单个属性输入 HTML 字符
