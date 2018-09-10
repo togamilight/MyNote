@@ -877,7 +877,7 @@ list.Cast<string>().Select(entry => entry.Substring(0,3));
 
 
 
-###视图与控制器间的数据传输
+### 视图与控制器间的数据传输
 
 * 使用`ViewData[string Name]`和`ViewBag.Name` ：
 
@@ -1061,21 +1061,21 @@ public ActionResult MyAction([ModelBinder(typeof(EmptyStringModelBinder))] MyMod
    ```
 
 2. 在控制器Action方法里用`ModelState.IsValid`判断参数是否绑定成功，不成功则用`RedirectToAction("View")`返回View 
-- ** 也可以直接在Action方法里获取错误信息
+- 也可以直接在Action方法里获取错误信息
     ```CSharp
     //校验数据
     if (!ModelState.IsValid) {
     	string msg = "";
     	foreach (var fieldState in ModelState) {
-		foreach (var error in fieldState.Value.Errors) {
-            		msg += error.ErrorMessage + "\n";
-        	}
-    	}
+        foreach (var error in fieldState.Value.Errors) {
+          msg += error.ErrorMessage + "\n";
+        }
+      }
     	throw new ValidationException(msg);
     }
     ```
 
-3. 在View里用`@Html.ValidationMessage("Name")`显示错误信息（`Html`是`HtmlHelper`类的实例。）
+1. 在View里用`@Html.ValidationMessage("Name")`显示错误信息（`Html`是`HtmlHelper`类的实例。）
 
 - **`UpdateModel`和 `TryUpdateModel` 方法之间的区别是什么？**
 
@@ -1092,8 +1092,8 @@ public ActionResult MyAction([ModelBinder(typeof(EmptyStringModelBinder))] MyMod
   ```CSharp
   using System.ComponentModel.DataAnnotations;
   public class FirstNameValidation:ValidationAttribute{
-    protected override ValidationResult IsValid(object value, 
-                                                ValidationContext validationContext){
+    protected override ValidationResult IsValid(
+      object value, ValidationContext validationContext){
       if (value == null){
         return new ValidationResult("Please Provide First Name");
       }

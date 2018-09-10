@@ -625,3 +625,42 @@ Minification 是一项用来移除 JavaScript 和 CSS 文件中不必要的字�
 浏览器缓存资源是基于 URL 的，当页面请求一个资源，浏览器首先检查缓存中是否存在资源与请求的 URL 匹配，若有则直接使用缓存。  
 因此，当你改变 JS 和 CSS 文件时，它可能不会被浏览器加载，这时必须强制刷新浏览器（清除或禁用缓存）  
 但使用 Bundling 时，会自动为每个 Bundle 添加一个 HashCode 作为 URL 的查询参数，所以当改变文件时，HashCode就会改变，浏览器一直能获得最新的 CSS 和 JS
+
+# 七、 PartialView、Area
+
+PartialView 分部视图相当于一个可重用的视图模块，最好是创建在 Shared 文件夹并以 `_` 为前缀命名。
+
+## 获取 PartialView
+
+### 在 Controller 中
+
+`return PartialView(name)`
+
+### 在 View 中
+
+* **Html.RenderPartial(name)**：结果直接写入 Http 响应流，即使用与当前页面、模板相同的 TextWriter 对象，速度比较快。
+    * 被调用的分部视图可以直接使用父视图的强类型 Model
+    * 返回类型为 void，不能直接调用，而应该放在 Razor 语句块中：`@{ Html.RenderPartial(name); }`
+* **Html.RenderAction(actionName)**：与上面类似，只是调用 Action 来得到分部视图
+* **Html.Partial(name)**：返回 Html 编码的字符串（MvcHtmlString），速度较慢，但可以在返回后通过修改字符串的内容来修改视图内容
+* **Html.Action**：与上面类似，只是调用 Action 来得到 MvcHtmlString
+
+两种不调用 Action 而直接获取分部视图的方法都可以传入 Model 和 ViewData
+
+### ChildAction
+
+ChildAction 通过在 Action 方法上添加 `[ChildActionOnly]` 特性来创建，常用来生成分部视图，只能在 View 中通过 `Html.RenderAction()` 或 `@Html.Action()` 来调用，拥有独立于父视图的 MVC 生命周期
+
+## Area
+
+Area 用来分离模块，每个模块拥有各自的 Models、Views、Controllers。
+
+### 注册Area
+
+在 Global.asax 的 Application_Start 方法中注册
+```CSharp
+protected void Appication_Start(){
+    AreaRegistration.RegisterAllAreas();
+}
+```
+必须在最开始注册 Area，以便注册的 Settings、Filters、Routes 能作用于 Area
