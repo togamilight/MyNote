@@ -541,3 +541,87 @@ https://www.jianshu.com/p/eb7a301bc536
 
 * `Request.HttpMethod`：判断是被哪种 HTTP 请求调用
 * `Request.IsAjaxRequest()`：是否为 Ajax 请求
+
+# 六、 模型验证、前端的优化技术
+
+## Data Annotations
+
+Data Annotations（数据注解）是指 `System.ComponentModel.DataAnnotations` 命名空间下的一系列特性，适用于  ASP.NET 项目以及 Entity Framework 模型，为 Model 类或属性定义规则进行数据验证和显示合适的提示信息给终端客户。  
+
+常见特性如下：
+* **DataType**：为属性指定数据类型
+* **DisplayName**：为属性指定显示名称
+* **DisplayFormat**：为属性指定显示格式
+* **Required**：限制属性为必须的
+* **RegularExpression**：用正则表达式验证属性值
+* **Range**：限制属性的取值区间（数字）
+* **StringLength**：限制字符串长度
+* **MaxLength**：限制字符串最大长度
+* **Bind**：添加参数或表单数据到 Model 时，指定字段会被添加到或排除
+* **ScaffoldColumn**：隐藏表单编辑界面的指定字段
+
+## 服务器端验证
+
+可以使用 Data Annotations 对模型属性进行注解，然后通过 `Controller.ModelState` 进行判断：
+```CSharp
+public ActionResult DoSomething(MyModel model){
+    if (!ModelState.IsValid) {
+        string msg = "";
+        foreach (var fieldState in ModelState) {
+            foreach (var error in fieldState.Value.Errors) {
+                msg += error.ErrorMessage + "\n";
+            }
+        }
+        throw new Exception(msg);
+    }
+
+    //也可以自己添加
+    ModelState.AddModelError("UserName", "Please enter your name");
+}
+```
+
+## 关闭和启用客户端验证
+
+可以通过设置 ClientValidationEnabled & UnobtrusiveJavaScriptEnabled 在应用程序级别启用和关闭客户端验证。开启客户端验证，两个属性都必须为true。
+```xml
+<add key="ClientValidationEnabled" value="true" />
+<add key="UnobtrusiveJavaScriptEnabled" value="true" />
+```
+修改 Global.asax 中的 `Application_Start()` 事件也可以启用关闭客户端验证：
+```CSharp
+protected void Application_Start(){
+    HtmlHelper.ClientValidationEnabled = true;
+    HtmlHelper.UnobtrusiveJavaScriptEnabled = true;
+}
+```
+可以为某一 View 启用及关闭客户端验证。通过在 View 中的 Razor 代码块中指定。View 中的设置将覆盖应用程序级别的设置。
+```CSharp
+@using MvcApp.Models
+@{ HtmlHelper.ClientValidationEnabled = false; }
+```
+
+## Bundling（捆绑）和 Minification （微小）
+
+ASP.NET MVC 提供捆绑和微小技术来减少对服务器的请求次数以及减少请求的 CSS 和 JavaScript 的大小，从而加快页面加载时间。
+
+一个 Bundle 是逻辑上的一组文件，仅通过一次 HTTP 请求就完成加载。所有的捆绑都是在 BundleConfig.cs 文件中创建。
+```CSharp
+public class BundleConfig
+{
+ public static void RegisterBundles(BundleCollection bundles)
+ {
+ bundles.Add(new StyleBundle("~/Content/css")
+    .Include("~/Content/site.min.css", "~/Content/mystyle.min.css"));
+ bundles.Add(new ScriptBundle("~/bundles/jqueryval")
+    .Include("~/Scripts/jquery-1.7.1.min.js", "~/Scripts/jquery.validate.min.js"); 
+ }
+}
+```
+
+Minification 是一项用来移除 JavaScript 和 CSS 文件中不必要的字符（比如空格，换号符，制表符）和注释来减小文件大小来加快网页加载速度。有很多种工具进行微小（其中 JSMin 和 YUI 是最流行的两款工具）。
+
+## Bundling（捆绑）与浏览器缓存
+
+浏览器缓存资源是基于 URL 的，当页面请求一个资源，浏览器首先检查缓存中是否存在资源与请求的 URL 匹配，若有则直接使用缓存。  
+因此，当你改变 JS 和 CSS 文件时，它可能不会被浏览器加载，这时必须强制刷新浏览器（清除或禁用缓存）  
+但使用 Bundling 时，会自动为每个 Bundle 添加一个 HashCode 作为 URL 的查询参数，所以当改变文件时，HashCode就会改变，浏览器一直能获得最新的 CSS 和 JS
