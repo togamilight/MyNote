@@ -804,7 +804,29 @@ list.Cast<string>().Select(entry => entry.Substring(0,3));
 * 只允许**一致性、引用和拆箱**转换
 * **Select**扩展方法只适用于**IEnumerable<T>**，而不能用于**IEnumerable**，需要用**Cast**进行转换
 
+### 退化的查询表达式
 
+如果 select 子句中什么都不做，直接返回和原序列相同的序列，且查询表达式中还有其它操作可执行，则编译器会删除对 select 的调用。但是，若查询表达式没有其它操作，则仍会保留 select，这称为退化的查询表达式，如：
+```CSharp
+from u in SampleData.Users select u
+//转换成
+SampleData.Users.Select(u => u);
+```
+这样看似没有意义，但是返回的序列是一个新的序列，与数据源是不同的对象
+
+### let 与透明标识符
+
+let子句用于给范围变量赋值：`let 标识符 = 表达式`
+但是每个 select 子句只能传入一个参数，即数据源的项，那么要在 select 中使用 let 子句创建的范围变量，就会用到透明标识符。
+使用了 let 子句，编译器会将其转换为调用一个 select 子句，然后将原序列的项和新的范围变量包装成新的匿名类型，如：
+```CSharp
+from u in SampleData.Users
+let Length = u.Name.Length
+orderby length select new { u.Name, Length };
+//转换成
+SampleData.Users.Select(u => new {u, Length = u.Name.Length}).OrderBy(z => z.Length)
+  .Select(z => new {z.user.Name, z.Length});
+```
 
 # Asp .Net MVC5
 
