@@ -819,5 +819,56 @@ public class CustomAuthorizeAttribute: AuthorizeAttribute {
 ## 允许输入 HTML 字符
 
 ASP.NET MVC 默认不允许用户去提交 HTML，避免跨域脚本（XSS）攻击。  
-在 Action 或 Controller 使用 `[ValidateInput(false)]` 特性可以启用或禁止输入校验。但这样会是所有参数都不进行校验。
+在 Action 或 Controller 使用 `[ValidateInput(false)]` 特性可以启用或禁止输入校验。但这样会是使所有参数都不进行校验。
 可以在 Model 的某个属性使用 `[AllowHtml]` 特性来允许单个属性输入 HTML 字符
+
+# 九、 缓存
+
+## 注意事项
+
+* 缓存经常访问的内容
+* 避免缓存对用户唯一的内容
+* 避免缓存不常访问的内容
+* 使用 `VaryByCustom` 方法去缓存基于自定义的请求类型（如 cookie, role, theme, browser 等等）的多个版本的内容 ？？
+* 使用64位的Windows Server和Sql Server进行高效缓存
+* 使用数据库进行缓存时，确保数据库服务器拥有充足内存，否则反而降低性能
+* 缓存经常变换又经常访问的内容时，定义一个短暂的缓存过期时间
+
+## 缓存的好处
+
+这一段原文说得很混乱，很多重复内容，自己理解就好
+
+* 减少寄宿服务器的往返调用（round-trips）
+* 缓存在客户端或代理时，减少对服务器的请求，减少带宽
+* 缓存在 WEB 服务器时，减少对数据库的请求，减少对数据库服务器的往返调用
+* 避免了重新生成可重用内容的时耗
+* 提高性能
+
+## 输出缓存 Output Caching
+
+`OutPutCache` 过滤器允许缓存 Action 的输出数据，默认只缓存 60S，过后，会重新执行 Action 并再次缓存输出结果
+```CSharp
+[OutputCache(Duration = 20, VaryByParam = "none")]
+public ActionResult Index(){ return View(); }
+```
+内容默认被缓存在3个地方：WEB 服务器，代理服务器，用户浏览器
+可以通过修改 `OutputCache` 的 `Location` 参数来控制缓存的地方：`Any, Client, Downstream, Server, None, ServerAndClient`；
+一般设置为 Any 就可以
+
+## Donut Caching
+
+假如你用 `OutputCache(VaryByParam=UserId)` 来缓存主页，由于主页除了用户的登录信息外是相同的，每个用户都会缓存一个主页，这样会缓存很多冗余的数据。  
+Donut Caching 用于为所有用户缓存一份除了部分动态内容外的完整页面，非常适用于缓存 大部分内容很少改变但又有部分内容动态改变的页面
+
+## Donut Hole Caching
+
+与 Donut Caching 相反，用于缓存页面的一小部分。
+通过在 ChildAction 上使用 OutputCache 来实现 Donut Hole Caching：
+```CSharp
+[ChildActionOnly]
+[OutputCache(Duration = 60)]
+public ActionResult CategoriesList(){
+    ViewBag.Categories = GetCategories();
+    return View();
+}
+```
