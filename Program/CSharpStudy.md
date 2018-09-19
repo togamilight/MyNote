@@ -4427,3 +4427,36 @@ IN 是把外表和内表作 hash 连接，而 EXISTS 是对外表作 loop 循环
 如果查询语句使用了 NOT IN，那么对内外表都进行全表扫描，没有用到索引；而NOT EXISTS 的子查询依然能用到表上的索引。所以无论哪个表大，用 NOT EXISTS 都比 NOT IN 要快。
 
 而且，NOT IN 有 BUG，如果集合中含有 NULL，则判断总是 false 的；因为 NOT IN 将字段与集合中的所有元素比较，全都不相等才返回 true，而 NULL 值与其它值的 **=/<>** 的比较都返回 NULL，所以会出错。
+
+### SQL Server 查看执行效率
+
+```SQL
+SET STATISTICS PROFILE ON   --显示分析、编译和执行查询所需的时间（以毫秒为单位）
+SET STATISTICS IO ON        --报告与语句内引用的每个表的扫描数、逻辑读取数（在高速缓存中访问的页数）和物理读取数（访问磁盘的次数）有关的信息
+SET STATISTICS TIME ON      --显示每个查询执行后的结果集，代表查询执行的配置文件
+GO
+--你的SQL脚本开始
+--你的SQL脚本结束
+GO
+SET STATISTICS PROFILE OFF
+SET STATISTICS IO OFF
+SET STATISTICS TIME OFF
+GO
+```
+
+### SQL Server 获取插入/更新/删除的数据
+
+SQL Server 在**插入/更新/删除**时，会创建 **Inserted 或 Deleted** 临时表（更新操作两者都创建），使用 **OUTPUT** 从中可以获取本次操作的数据：
+```SQL
+--插入
+INSERT INTO t1 OUTPUT Insert.Id VALUES (1, 2, 3);
+--删除
+DELETE FROM t1 OUTPYT Deleted.Id WHERE b = 2;
+--更新
+UPDATE t1 SET a = 2 OUTPUT Deleted.Id AS '更新前', Inserted.Id AS '更新后' WHERE c = 3;
+```
+**OUTPUT** 的结果不能像子查询那样直接使用，但可以将其存储在临时变量中使用
+```SQL
+DECLARE @t2 table(id int, a int, b int, c int)
+DELETE FROM t1 OUTPYT Deleted.Id INTO @t2 WHERE b = 2;
+```
