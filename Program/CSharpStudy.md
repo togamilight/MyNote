@@ -4460,3 +4460,56 @@ UPDATE t1 SET a = 2 OUTPUT Deleted.Id AS '更新前', Inserted.Id AS '更新后'
 DECLARE @t2 table(id int, a int, b int, c int)
 DELETE FROM t1 OUTPYT Deleted.Id INTO @t2 WHERE b = 2;
 ```
+
+### SQLServer 给每行设置不同随机数
+```SQL
+-- 0 到 99 之间的随机整数
+UPDATE t1 SET num = FLOOR(RAND(CHECKSUM(NEWID()) * 100);
+```
+
+### SQL 事务
+```SQL
+------------复杂版------------
+BEGIN TRAN
+BEGIN TRY   --捕捉异常
+  --执行语句
+END TRY
+BEGIN CATCH
+  SELECT Error_number() AS ErrorNumber,       --错误代码
+         Error_severity() AS ErrorSeverity    --错误严重级别，小于10捕捉不到
+         Error_state() AS ErrorState,         --错误状态码
+         Error_Procedure() AS ErrorProcedure, --出现错误的存储过程或触发器的名称
+         Error_line() AS ErrorLone,           --发生错误的行号
+         Error_message() AS ErrorMessage;      --错误的具体信息
+  if(@@trancount > 0)   --全局变量，每开启一个事务+1；用来判断有无事务（其实这里不需要的）
+    ROLLBACK TRAN
+END CATCH
+COMMIT TRAN;
+
+------------简单版------------
+BEGIN TRAN
+  --执行语句
+IF @@ERROR <>0
+  ROLLBACK TRAN
+ELSE
+	COMMIT TRAN   --(这两个 TRAN 好像可以省略)
+```
+
+### SQL 游标
+
+游标变量命名不能使用 `@` 开头！
+
+```SQL
+----------简单使用--------------
+DECLARE @id int, @num int;
+DECLARE myCursor CURSOR FOR SELECT id, num FROM t1;
+OPEN myCursor;        --打开游标
+FETCH NEXT FROM myCursor INTO @id, @num;      --移动游标
+WHILE @@FETCH_STATUS = 0
+	BEGIN
+		SELECT @id, @num;
+    FETCH NEXT FROM myCursor INTO @id, @num;   --移动游标
+	END
+CLOSE myCursor 			  --关闭游标
+DEALLOCATE myCursor 	--释放游标
+```
