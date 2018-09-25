@@ -137,10 +137,40 @@ IE8设置了遮罩层之后，如果没有背景或背景透明（包括用滤�
 |filter | 19  | 33  | 4C  | 66  | 7F  | 99  | B2  | C8  | E5  |
 
 
-## CSS hack
+### CSS hack
+...
 
 ### js刷新页面
 
 * `window.location.reload()`: 相当于点击浏览器的刷新按钮；
 * `window.location = window.location`: 相当于在地址栏重新输入网址
 
+### display: inline-block 产生间隙
+
+当我们想要将多个块置于一行又不想用浮动时，可以使用 `display: inline-block`（其实也可以用弹性盒子 `display: flex`），如：
+```html
+<style>
+  ul>li{ display: inline-block; }
+</style>
+<ul>
+  <li>a</li>
+  <li>a</li>
+</ul>
+```
+但是这样每个块之间会留下一个空格的间隙，这是因为 HTML 代码中的换行符导致的，解决方法如下：  
+1. 改变 HTML 代码的书写方式，比较僵硬，不推荐
+   ```HTML
+   <ul>
+    <!--不换行-->
+    <li>a</li><li>a</li>...
+    <!--闭合标签写到下一行-->
+    <li>a
+    </li><li>a
+    </li>...
+    <!--不闭合标签-->
+    <li>a
+    <li>a
+   </ul>
+   ```
+2. 给父元素设置 `font-size: 0;`，但是必须给子元素再设置字体大小，比较蛋疼，不推荐
+3. 设置负外边距，因为空格占半个字体大小，只要给子元素设置四分之一大小的负外边距就可以了：`margin: 0 -0.25em;`，推荐
