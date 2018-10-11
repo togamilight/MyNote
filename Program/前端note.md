@@ -174,3 +174,31 @@ IE8设置了遮罩层之后，如果没有背景或背景透明（包括用滤�
    ```
 2. 给父元素设置 `font-size: 0;`，但是必须给子元素再设置字体大小，~~比较蛋疼，不推荐~~，比其它两种稳定，最终选择了这种
 3. 设置负外边距，因为空格占半个字体大小，只要给子元素设置四分之一大小的负外边距就可以了：`margin: 0 -0.25em;`，~~推荐~~，不同字体下空格的大小不一样，比如宋体是二分之一，微软雅黑好像是三分之一，也挺蛋疼
+
+### 自定义上传文件控件样式
+
+思路是将上传文件 input 设为绝对定位，并设为透明，铺满父元素，溢出部分隐藏，然后在父元素上写样式：
+```HTML
+<span class="my-file-select">选择附件<input type="file"/></span>
+```
+```CSS
+        .my-file-select{
+            position: relative;    
+            display: inline-block;
+            overflow: hidden;
+            color:#2B6997;
+            text-decoration:underline;
+            height: 35px;
+        }
+        .my-file-select>input{
+            height: 100%;
+            position:absolute;   
+            right: 0;
+            top: 0;
+            outline: none;
+            z-index: 10;
+            opacity: 0;
+            filter: alpha(opacity=0); /*IE版的透明*/
+            cursor: pointer;
+        }
+```
