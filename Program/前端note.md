@@ -112,6 +112,7 @@ element.onclick = function(event){
 ```
 
 ### IE浏览器实现遮罩
+
 IE8不支持`fixed`,这里使用`absolute`,IE8不支持`rgba`，要使用IE特有的滤镜实现透明背景
 ```CSS
 .mask {
@@ -201,4 +202,56 @@ IE8设置了遮罩层之后，如果没有背景或背景透明（包括用滤�
             filter: alpha(opacity=0); /*IE版的透明*/
             cursor: pointer;
         }
+```
+
+### 在 IE8 下上传文件的傻逼之处
+
+在 IE8 下异步上传文件，由于用不了 FormData()，使用了 jQuery.form.js 插件，有一万个坑。
+1. 必须添加的 meta 标签：
+  ```HTML
+  <!--使文件名能支持中文，基本必有的-->
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8" />
+  <!--没有这个，IE8 下文件不会发送。。。-->
+  <meta content="always" name="referrer" />
+  <!--可选，让你在各种国产浏览器的兼容模式中自动采用最新版本的 IE，远离傻逼 IE8-->
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+  ``` 
+2. 必须将文件 input 嵌套在 form 中，而不能这样：
+  ```JavaScript
+  //jQuery 的 clone() 在 IE8 下不会同时复制选中的文件
+  $form.append($file.clone());
+  ```
+3. form 必须有 `method='post'`，input 必须有 name 和 value（value 可以是空字符串），莫名其妙
+4. 必须设置 `dataType: "text"`，后端接口返回 `content-type: text/html`（.NET MVC 中返回 Content(value)），前端接收到的是文本，自行转换成 json
+5. 上传完后清空 input，无法用普通的 `$file.val("")`，可以用简单的 `$form[0].reset()`，或者不嫌麻烦也可以将原来的 input 删掉加一个一样的（clone() 一下之类的）
+
+例子：
+```HTML
+<form method="post">
+  <input name="uploadFile" type="file" value=""/>
+</form>
+```
+```JavaScript
+//上传附件
+$filePanel.on("change", "input[type='file']", function() {
+    var $file = $(this);
+    var $form = $file.parent();
+    var fileName = $file.val();
+    if (!fileName) { return; }
+
+    $file.prop("readonly", true);
+    $form.ajaxSubmit({
+        data: { /*额外的数据*/ },
+        success: function(res) {
+            var data = jQuery.parseJSON(res);
+            ...
+            $file.prop("readonly", false);
+            $form[0].reset();
+        },
+        url: URL,
+        type: "post",
+        dataType: "text", /*设置返回值类型为文本*/
+        contentType: "multipart/form-data;charset=utf-8" /*设置字符集为 utf-8 才可以支持中文文件名*/
+    });
+});
 ```
