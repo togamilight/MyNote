@@ -209,7 +209,7 @@ IE8设置了遮罩层之后，如果没有背景或背景透明（包括用滤�
 在 IE8 下异步上传文件，由于用不了 FormData()，使用了 jQuery.form.js 插件，有一万个坑。
 1. 必须添加的 meta 标签：
   ```HTML
-  <!--使文件名能支持中文，基本必有的-->
+  <!--使文件名能支持中文，基本必有的（在IE8下好像不能使文件名支持中文，日）-->
   <meta http-equiv="Content-Type" content="text/html;charset=utf-8" />
   <!--没有这个，IE8 下文件不会发送。。。-->
   <meta content="always" name="referrer" />
@@ -224,7 +224,7 @@ IE8设置了遮罩层之后，如果没有背景或背景透明（包括用滤�
 3. form 必须有 `method='post'`，input 必须有 name 和 value（value 可以是空字符串），莫名其妙
 4. 必须设置 `dataType: "text"`，后端接口返回 `content-type: text/html`（.NET MVC 中返回 Content(value)），前端接收到的是文本，自行转换成 json
 5. 上传完后清空 input，无法用普通的 `$file.val("")`，可以用简单的 `$form[0].reset()`，或者不嫌麻烦也可以将原来的 input 删掉加一个一样的（clone() 一下之类的）
-
+6. IE8 下中文文件名会乱码，应该讲文件进行 URL 编码，再作为额外的参数传过去
 例子：
 ```HTML
 <form method="post">
@@ -241,7 +241,9 @@ $filePanel.on("change", "input[type='file']", function() {
 
     $file.prop("readonly", true);
     $form.ajaxSubmit({
-        data: { /*额外的数据*/ },
+        data: { 
+          fileName: encodeURIComponent(fileName), ... /*额外的数据*/
+        },
         success: function(res) {
             var data = jQuery.parseJSON(res);
             ...
@@ -255,3 +257,22 @@ $filePanel.on("change", "input[type='file']", function() {
     });
 });
 ```
+
+### 跨域 Ajax 支持 Session
+
+Session 基于 Cookie 运作，而 Ajax 默认是不传 Cookie 的，所以要进行设置
+1. 设置 Ajax 支持 Cookie：`xhrFields: {withCredentials: true}`，也可以进行全局设置：
+    ```JavaScript
+    $.ajaxPrefilter(function( options, originalOptions, jqXHR ) {
+        options.xhrFields = { withCredentials: true }
+    });
+    //或  
+    $.ajaxSetup({crossDomain: true, xhrFields: {withCredentials: true}});
+    ```
+2. 在服务器设置返回头
+    ```CSharp
+            //设置ajax可以携带、设置cookie
+            filterContext.HttpContext.Response.AddHeader("Access-Control-Allow-Credentials", "true");
+            //这里不能设置 "*"，要写明发起 Ajax 请求的网站的域名，可从请求头的 Origin 属性获得，但 IE8 发出的请求没有这个属性，需要自己写明
+            filterContext.HttpContext.Response.AddHeader("Access-Control-Allow-Origin", "origin");    
+    ```
