@@ -824,8 +824,8 @@ from u in SampleData.Users
 let Length = u.Name.Length
 orderby length select new { u.Name, Length };
 //转换成
-SampleData.Users.Select(u => new {u, Length = u.Name.Length}).OrderBy(z => z.Length)
-  .Select(z => new {z.user.Name, z.Length});
+SampleData.Users.Select(u => new {u, Length = u.Name.Length})
+.OrderBy(z => z.Length).Select(z => new {z.user.Name, z.Length});
 ```
 
 ### 连接
@@ -864,6 +864,19 @@ var query = from p in Persons group p.name by p.sex
 var query = Persons.GroupBy(p => p.sex, p => p.name);
 ```  
 
+#### 查询延续 into
+
+查询延续是指将一个查询表达式的结果作为另一个查询表达式的初始序列。可以用于 `group...by` 或 `select` 子句上。
+```CSharp
+first-query into identifier
+second-query-body
+//转译为
+from identifier in (first-query)
+second-query-body
+```
+在 `second-query-body` 中，`first-query` 中的范围变量已经不能使用了，它超出了作用域
+
+* `join...into` 并不是延续，仍可以使用连接左边的范围变量
 
 # Asp .Net MVC5
 
