@@ -1045,7 +1045,7 @@ public ActionResult MyAction([ModelBinder(typeof(EmptyStringModelBinder))] MyMod
 
 4. 创建数据访问层
 
-   - 在根目录下，新建文件夹”Data Access Layer“，并在Data Access Layer文件夹中新建类” SalesERPDAL “
+   - 在根目录下，新建文件夹"Data Access Layer"，并在Data Access Layer文件夹中新建类"SalesERPDAL"
    - 在类文件顶部添加 Using System.Data.Entity代码。
    - 继承DbContext类
 
@@ -1115,8 +1115,6 @@ public ActionResult MyAction([ModelBinder(typeof(EmptyStringModelBinder))] MyMod
     throw;}
   ```
 
-  ​
-
 
 ### 服务器端验证
 
@@ -1185,8 +1183,6 @@ public ActionResult MyAction([ModelBinder(typeof(EmptyStringModelBinder))] MyMod
   ```
 
 
-
-
 #### 手动校验数据
 
 ```CSharp
@@ -1201,10 +1197,6 @@ if (!Validator.TryValidateObject(t, new ValidationContext(t), validResults, true
 ```
 
 
-
-
-
-
 ### 添加授权认证
 
 * 先来了解ASP.NET是如何进行Form认证的。
@@ -1213,7 +1205,6 @@ if (!Validator.TryValidateObject(t, new ValidationContext(t), validResults, true
   3. 当服务器端接收到请求时，服务器会检测请求，查看是否存在 “Authentication Cookie”的Cookie。
   4. 如果查找到认证Cookie，服务器会识别用户，验证用户是否合法。
   5. 如果未找到“Authentication Cookie”，服务器会将用户作为匿名（未认证）用户处理，在这种情况下，如果请求的资源标记着 `protected/secured`，用户将会重定位到登录页面。
-
 
 
 1. 创建 `AuthenticationController`和 `Login`行为方法（直接返回`LoginView`）
@@ -1240,7 +1231,7 @@ if (!Validator.TryValidateObject(t, new ValidationContext(t), validResults, true
    <!--HtmlHelper类函数返回html字符串 例子-->
    1. @Html.TextBoxFor(x=>x.UserName)
    相当于	<input id="UserName" name="UserName" type="text" value="" />
-   2. @using (Html.BeginForm("DoLogin", "Authentication", FormMethod.Post)){...}
+   1. @using (Html.BeginForm("DoLogin", "Authentication", FormMethod.Post)){...}
    相当于	<form action="/Authentication/DoLogin" method="post">...</form>
    验证失败显示错误信息：@Html.ValidationMessageFor(x=>x.UserName)
    使用HtmlHelper类时，验证失败返回时，之前填写的数据会自动保留
@@ -1295,8 +1286,6 @@ if (!Validator.TryValidateObject(t, new ValidationContext(t), validResults, true
 
 10. 注销：`FormsAuthentication.SignOut();`
 
-
-
 - **`FormsAuthentication.SetAuthCookie`是必须写的吗？**
 
   是必须写的。让我们了解一些小的工作细节。
@@ -1309,8 +1298,6 @@ if (!Validator.TryValidateObject(t, new ValidationContext(t), validResults, true
   - 如果客户端再次给服务器发送请求，服务器就会识别。
 
   `FormsAuthentication.SetAuthCookie`将添加 “Authentication”特殊的Cookie来响应。
-
-  ​
 
 - **是否意味着没有Cookies，FormsAuthentication 将不会有作用？**
 
@@ -1325,7 +1312,6 @@ if (!Validator.TryValidateObject(t, new ValidationContext(t), validResults, true
 ​	授权的Cookie会使用URL传递。
 
 ​	通常情况下，Cookieless属性会被设置为“AutoDetect“，表示认证工作是通过Cookie完成的，是不支持URL传递的。
-
 
 
 ### 分部视图
@@ -1344,8 +1330,6 @@ if (!Validator.TryValidateObject(t, new ValidationContext(t), validResults, true
   //Action
   return PartialView("AddNewLink");
   ```
-
-  ​
 
 *  **Html.Partial的作用是什么？与Html.RenderPartial区别是什么？**
 
@@ -2273,7 +2257,7 @@ Web API的参数绑定和mvc不同！
     //数据只有数组时，用参数int[]直接接收就可以了,复杂类型的数组则用List<T>
     ```
 
-#####WebApi中的NewtonSoft.Json
+##### WebApi中的NewtonSoft.Json
 
 - 普通的dynamic对象，读取未存入的属性，会出现异常，而WebApi中通过post传参的到的dynamic对象则不会，大概是因为它是NewtonSoft.Json.Linq.JObject类型的
 
@@ -2296,18 +2280,22 @@ Web API的参数绑定和mvc不同！
 
   //反序列化为Object
   var object = JsonConvert.DeserializeObject(dataStr);
+
+  //反序列化为dynamic
+  dynamic dynamicObj = JsonConvert.DeserializeObject(dataStr);
+  string userName = dynamicObj.userName;
   ```
 
 - 将dynamic转换为具体类型
-
   ```CSharp
-  var user = ((JObject)dataStr).ToObject<vf_users>();
+  public HttpResponseMessage LockApply(dynamic data){ //data是NewtonSoft.Json.Linq.JObject类型
+      var user = ((JObject)data).ToObject<vf_users>();
+  }
+  
   ```
-
   ​
 
 ###Tip
-
 
 * 在Action中，默认的，向get请求返回json是不允许的，这时需要使用
 
@@ -2360,7 +2348,7 @@ Web API的参数绑定和mvc不同！
 
 * 在cshtml中使用`@Session["key"]`得到的中文会乱码。对于js，可以先在html中用input的value存储该值，再用js读取input的value，可解决乱码，原因不明
 
-* 在cshtml中，使用Razor表达式从`ViewData，ViewBag，Session`等拿到的中文字符串，直接放进js里时，会被转换成形如"&#28165;"的字符，这是html entity，
+* 在cshtml中，使用Razor表达式从`ViewData，ViewBag，Session`等拿到的中文字符串，直接放进js里时，会被转换成形如`&#28165;`的字符，这是html entity，
   可以通过将其先放进html页面里，再获取来将其转换回来。例如
 
   ```js
@@ -2374,14 +2362,28 @@ Web API的参数绑定和mvc不同！
 
   ```
 
-  ​
+* ASP.NET MVC 字典或列表作参数
 
+```CSharp
+public ActionResult MyAction(Dictionary<string, string> dict, List<string> list){}
+
+//前端传值
+{
+  dict[0].key: "key0",
+  dict[0].value: "value0",
+  dict[1].key: "key1",
+  dict[1].value: "value1",
+  list[0]: ""
+}
+
+```
+  ​
 
 # ADO.NET
 
 ### 简单介绍ADO.NET
 
-​	简单的讲，**ADO.NET是一组允许.NET开发人员使用标准的，结构化的，甚至无连接的方式与数据交互的技术。**对于ADO.NET来说，可以处理数据源是多样的。可以是应用程序唯一使用的创建在内存中数据，也可以是与应用程序分离，存储在存储区域的数据（如文本文件、XML、关系数据库等）。
+​	简单的讲，**ADO.NET是一组允许.NET开发人员使用标准的，结构化的，甚至无连接的方式与数据交互的技术**。对于ADO.NET来说，可以处理数据源是多样的。可以是应用程序唯一使用的创建在内存中数据，也可以是与应用程序分离，存储在存储区域的数据（如文本文件、XML、关系数据库等）。
 
 ​      具体来说，ADO.NET 对 Microsoft SQL Server 和 XML 等数据源以及通过 OLE DB 和 XML 公开的数据源提供一致的访问。数据共享使用者应用程序可以使用 ADO.NET 来连接到这些数据源，并检索、处理和更新所包含的数据。
 
