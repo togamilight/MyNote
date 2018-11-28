@@ -878,6 +878,18 @@ second-query-body
 
 * `join...into` 并不是延续，仍可以使用连接左边的范围变量
 
+### IQueryable 和 IQueryProvider
+
+`IQueryable<T>` 继承于 `IEnumerable<T>` 和 `IQueryable`，`IQueryable` 继承于 `IEnumerable`。
+`IQueryable` 有三个属性：`Provider`、`ElementType`、`Expression`。
+`Provider` 用来完成查询和构建更大的查询（比如调用 `Where` 方法时）；为了构建查询，需要调用 `IQueryProvider` 的 `CreateQuery` 方法。
+
+给定任意 `IQueryable` 查询后，执行以下步骤来创建新的查询：
+1. 请求现有查询的查询表达式树（`Expression` 属性）
+2. 构建一个新的表达式树，包含最初的表达式和额外的功能（过滤、投影、排序等）
+3. 请求现有查询的查询提供器（`Provider` 属性）
+4. 调用提供器的 `CreateQuery` 方法，传递新表达式树
+
 # Asp .Net MVC5
 
 ### 控制器Controller
