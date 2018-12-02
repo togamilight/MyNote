@@ -674,7 +674,6 @@ var tom = new {Name = "Tom", Age = 9};	//不能加string和int
 因为**所有属性是只读**的，所以只要这些属性是不易变的，那么匿名类型就是不易变的
 
 
-
 ### 投影初始化程序
 
 ```CSharp
@@ -682,13 +681,19 @@ var tom = new {Name = "Tom", Age = 9};	//不能加string和int
 var v = new {person.Name}
 ```
 
+### 构造匿名类型的泛型变量
+
+```CSharp
+var obj = new { a = "1", b = 2, c = 3.0 };
+Type type = typeof(List<>).MakeGenericType(obj.GetType());
+var list = Activator.CreateInstance(type) as IList;
+```
 
 
 # Lambda表达式
 
 * 与匿名方法类似，表达式的类型本身不是委托类型，但它可以通过多种方式隐式或显示转换为委托类型
 * 参数列表必须全是显示类型或全是隐式类型
-
 
 
 # 表达式树
@@ -889,6 +894,13 @@ second-query-body
 2. 构建一个新的表达式树，包含最初的表达式和额外的功能（过滤、投影、排序等）
 3. 请求现有查询的查询提供器（`Provider` 属性）
 4. 调用提供器的 `CreateQuery` 方法，传递新表达式树
+
+#### IQueryable 与 IEnumerable 的区别
+
+两者都通过自身的扩展方法来实现 LINQ 标准查询操作符，但也有不同之处：
+1. IEnumerable 的方法使用委托作参数，但对于在别处执行查询的 IQueryable，则需要能执行更详细检查的格式——表达式树。
+不过，在使用中只需要传入 Lambda 表达式，它既能转换成委托，也能转换成表达式树，编译器也会自动将查询表达式转译成 Lambda 表达式作为参数的方法调用（? 这里存疑，因为前面说 Lambda 表达式转换成表达式树有很多限制，比如含有语句块、赋值操作的不能转。大概对这些复杂的 Lambda 表达式还会进行其它的处理？）
+2. IEnumerable 的扩展方法会完成与对应查询操作符的实际工作（至少会构建出迭代器），而 IQueryable 的查询操作符做的事情很少，仅仅创建一个新的查询或在查询提供器上调用 `Execute`，只构建查询和要执行的请求，只是代码和提供器细节之间的黏合剂
 
 # Asp .Net MVC5
 
