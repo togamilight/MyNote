@@ -153,3 +153,102 @@ HTTP 中内容编码的功能可进行压缩操作，指明应用在实体内容
 * compress (UNIX 系统的标准压缩)
 * deflate (zlib)
 * identity (不进行编码)
+
+### 分割发送的分块传输编码
+
+在 HTTP 通信过程中，请求的资源未传输完成前，浏览器无法显示；在传输大容量数据是，把数据分割成多块，能让浏览器逐步显示页面，称为**分块传输编码**(Chunked Transfer Coding)。
+分块传输编码将实体主体分为多块，每块用**十六进制**来标记大小，最后一块会使用 "0(CR+LF)" 来标记；接收客户端负责解码，恢复成编码前的实体主体。
+HTTP/1.1 有**传输编码**(Transfer Coding)机制，可以在通信时按某种编码方式传输，但只作用于分块传输编码中
+
+
+## 3.4 发送多种数据的多部分对象集合
+
+MIME(Multipurpose Internet Mail Extensions 多用途因特网邮件扩展) 机制，允许邮件处理文本、图片、视频等不同类型数据，其中有一种 **多部分对象集合** 的方法来容纳多份不同类型的数据，在 HTTP 中也有用到：
+* **multipart/form-data**：用于表单上传文件
+  ```HTTP
+    Content-Type: multipart/form-data; boundary=AaB03x
+
+    --AaB03x
+    Content-Disposition: form-data; name="field1"
+    Joe Blow
+    --AaB03x
+    Content-Disposition: form-data; name="pics"; filename="file1.txt"
+    Content-Type: text/plain
+    ...（file1.txt的数据）...
+    --AaB03x--
+  ```
+* **multipart、byteranges**：状态码 "206 Partial Content"(部分内容)，响应报文包含了多个范围的内容时使用
+  ```HTTP
+    HTTP/1.1 206 Partial Content
+    Date: Fri, 13 Jul 2012 02:45:26 GMT
+    Last-Modified: Fri, 31 Aug 2007 02:02:20 GMT
+    Content-Type: multipart/byteranges; boundary=THIS_STRING_SEPARATES
+
+    --THIS_STRING_SEPARATES
+    Content-Type: application/pdf
+    Content-Range: bytes 500-999/8000
+    ...（范围指定的数据）...
+    --THIS_STRING_SEPARATES
+    Content-Type: application/pdf
+    Content-Range: bytes 7000-7999/8000
+    ...（范围指定的数据）...
+    --THIS_STRING_SEPARATES--
+  ```
+
+使用多部分对象集合时，需要在首部中加上 `Content-Type`；使用 boundary 字符串来划分各个实体，boundary 字符串前要有 "--"，集合结尾的 boundary 字符串末尾要有 "--"；每个实体中，都可以有首部字段，可以在某部分嵌套使用多部分对象集合
+
+## 3.5 获取部分内容的范围请求
+
+使用范围请求(Range Request)可以指定下载的实体范围，可用来断点续传；使用首部字段 Range 来指定资源的 byte 范围
+* `Range:bytes=5001-10000`，5001-10000 字节
+* `Range:bytes=5001-`，从 5001 字节之后的全部
+* `Range:bytes=-3000,5000-7000`，从开头到 3000 字节和 5000-7000 字节
+
+针对范围请求，响应会返回状态码为 `206 Partial Content` 以及 `Content-Type：multipart/byteranges` 的响应报文；如果服务器无法响应范围请求，则返回状态码 `200 OK` 和完整的实体内容
+
+## 3.6 内容协商
+
+客户端与服务器就响应的资源内容进行交涉，提供给客户端最合适的资源(比如根据浏览器的默认语言返回不同语言的页面)，以响应资源的语言、字符集、编码方式等作为判断的基准，使用以下首部字段：
+`Accept, Accept-Charset, Accept-Encoding, Accept-Language, Content-Language`
+
+内容协商技术有 3 种类型：
+* **服务器驱动协商**：以请求的首部字段为参考，服务器自动处理；但以浏览器发送的信息为依据，不一定能筛选出最优内容
+* **客户端驱动协商**：用户从浏览器显示的可选列表中手动选择，或者用 JS 脚本自动选择，比如按 OS 或浏览器的类型，自行切换 PC 版和手机版的页面
+* **透明协商**：以上两者结合
+
+
+# 第四章 返回结果的 HTTP 状态码
+
+* **1XX**：Inforamtional，信息性状态码，接收的请求正在处理
+* **2XX**：Success，成功，请求正常处理完毕
+* **3XX**：Redirection，重定向，需要进行附加操作以完成请求
+* **4XX**：Client Error，客户端错误，服务器无法处理请求
+* **5XX**：Server Error，服务器错误，服务器处理请求出错
+
+## 4.2 2XX 成功
+
+* **200 OK**：表示请求被正常处理了
+* **204 No Content**：表示请求被正常处理，但响应报文中不含实体主体，也不允许返回实体主体；此时，浏览器的页面不会更新。一般在只需要客户端往服务器发送信息，而服务器不需要返回信息时使用
+* **206 Partial Content**：范围请求被正常处理，响应报文中包含由 `Content-Range` 指定范围的实体内容
+
+## 4.3 3XX 重定向
+
+* **301 Moved Permanently**：永久性重定向，表示请求的资源已被分配了新的 URI，以后应使用 `Location` 首部字段提示的 URI 访问。会更新书签 ？
+* **302 Found**：临时性重定向，表示本次应该用新的 URI 访问资源。不会更新书签 ？
+* **303 See Other**：表示请求的资源存在另一个 URI，应使用 GET 方法获取。和 302 的区别在于，需要以 GET 方法请求新的 URI
+  * 当 301、302、303 状态码返回时，几乎所有浏览器都会把 POST 改为 GET，并删除请求报文内的主体，之后自动再次发送请求。301、302 标准是禁止将 POST 改为 GET 的，但实际使用时大家都这么做 ？
+* **304 Not Modified**：表示客户端发送附带条件的请求时，服务器允许访问资源，但未满足条件。此时，不包含任何响应主体部分；304 其实和重定向没什么关系
+  * 附带条件的请求是指 GET 请求包含 `If-Match, If-Modified-Since, If-None-Match, If-Range, If-Unmodified-Since` 中任一首部
+* **307 Temporary Redirect**：临时重定向，与 302 相同，但严格遵照标准，不会从 POST 变为 GET
+
+## 4.4 4XX 客户端错误
+
+* **400 Bad Request**：表示请求报文有语法错误，需要修改请求内容再次发送；浏览器会像 `200 OK` 一样对待该状态码 ？
+* **401 Unauthorized**：表示发送的请求需要有通过 HTTP 认证（BASIC 认证、DIGEST 认证）的认证信息，如果之前已有一次请求，则表示用户认证失败
+* **403 Forbidden**：表示拒绝访问该资源，不需要给出拒绝理由
+* **404 Not Found**：表示无法找到该资源
+
+## 4.5 5XX 服务器错误
+
+* **500 Internal Server Error**：表示服务器在执行请求是发生了错误
+* **503 Service Unavailable**：表示服务器暂时处于超负载或停机维护，无法处理请求；若事先得知恢复需要的时间，最好写入 `RetryAfter` 首部字段再返回
