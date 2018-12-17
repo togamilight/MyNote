@@ -906,6 +906,14 @@ second-query-body
 * 当调用 `CreateQuery()` 时，可能会构建很复杂的表达式树，LINQ 提供器会以它需要的任何形式构建它们自己的查询，不过当调用 `GetEnumerator()` 时，表达式树一般比较简单，因为需要的信息已经保存到同一个地方(不是很理解)
 * 当使用 `Sum/Count/Average` 之类的聚合操作符时，不会调用 `GetEnumerator()`，而是调用 `Provider.Execute()`
 
+## 并行 LINQ 
+
+使用多线程进行查询的 LINQ，缩写是 PLINQ。  
+PLINQ 带来了一些新类型：  
+* **ParallelEnumerable**：一个与 Enumerable 类似的静态类，几乎都是扩展方法，大多数扩展了 ParallelQuery
+* **ParallelQuery**：有泛型和非泛型版本，实现了对应的 IEnumerable
+* **OrderedParallelQuery<TSource>**
+
 # Asp .Net MVC5
 
 ### 控制器Controller
