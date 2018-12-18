@@ -912,7 +912,12 @@ second-query-body
 PLINQ 带来了一些新类型：  
 * **ParallelEnumerable**：一个与 Enumerable 类似的静态类，几乎都是扩展方法，大多数扩展了 ParallelQuery
 * **ParallelQuery**：有泛型和非泛型版本，实现了对应的 IEnumerable
-* **OrderedParallelQuery<TSource>**
+* **OrderedParallelQuery<T>**
+
+`ParallelQuery<T>` 实现了 `IEnumerable<T>`，`ParallelQuery<T>` 的扩展方法优先于 `IEnumerable<T>` 的扩展方法，因为它更为特殊。所有 LINQ 的标准查询操作符都有并行版本，如果要对一个 `IEnumerable<T>` 对象使用并行查询时，只需调用 `AsParallel()` 即可
+PLINQ 默认使用无序查询，可以对 `ParallelQuery` 对象调用 `AsOrdered()` 方法来强制对查询排序，但速度会变慢。`AsUnordered()` 方法可以使有序查询变为无序，使后续无需排序的查询更为高效
+
+理论上讲，并行查询应该比普通查询要快，可是在我的测试中，并行查询反而更慢，不知道是不是方法有误
 
 # Asp .Net MVC5
 
