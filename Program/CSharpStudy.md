@@ -919,6 +919,30 @@ PLINQ 默认使用无序查询，可以对 `ParallelQuery` 对象调用 `AsOrder
 
 理论上讲，并行查询应该比普通查询要快，可是在我的测试中，并行查询反而更慢，不知道是不是方法有误
 
+# 简化代码的微小修改
+
+## 可选参数
+
+* 参数列表的顺序：必备参数 --> 可选参数 --> `params` 参数数组；参数数组不能声明为可选的，如果调用时没指定值，则为空数组
+* 可选参数不能使用 `ref` 或 `out` 修饰符
+* 可选参数的默认值必须是常量：数字或字符串字面量、null、const 成员、枚举成员、default(T) 操作符；对于值类型，还可以调用与 default(T) 等价的无参构造方法
+* 默认值会隐式转换为参数类型，但这种转换不能是用户定义的
+
+## 接口和委托的泛型可变性
+
+在泛型接口和委托中，如果泛型 T 仅作为返回值，则具有协变性，用 out 修饰；若 T 仅作为传入参数，具有逆变性，用 in 修饰；若 T 即是返回值也是参数，则为不变性
+```CSharp
+public interface IEnumerable<out T>{}
+public interface IComparer<in T>{}
+
+delegate T Func<out T>()
+delegate void Action<in T>()
+```
+
+### 复杂情况
+
+等进一步消化下
+
 # Asp .Net MVC5
 
 ### 控制器Controller
