@@ -1028,7 +1028,29 @@ class AsyncForm : Form{
 }
 ```
 
-程序运行到 `await` 时，若该表达式结果不存在（几乎总是如此），则安排一个在其后执行的后续操作，后续操作将跳到 `await` 表达式的末尾，执行剩下的代码。Task 包含一个专门用于添加后续操作的方法：Task.ContinueWith
+程序运行到 `await` 时，若该表达式结果不存在（几乎总是如此），则安排一个在其后执行的后续操作，后续操作将跳到 `await` 表达式的末尾，执行剩下的代码。Task 包含一个专门用于添加后续操作的方法：Task.ContinueWith  
+
+* 前面代码异步执行后，能正确回到 UI 线程继续执行，是因为使用了 SynchronizationContext 类
+
+### 异步方法执行步骤
+基于任务的异步模式，在异步操作开始时返回一个 token（通常为 Task/Task<T>），表示正在进行的操作，在这个操作完成前，不能进行下一步处理；可以用这个 token 在稍后提供后续操作
+
+异步方法的执行通常遵守以下流程：
+1. 执行某些操作
+2. 开始异步操作，并记住返回的 token
+3. 可能执行其它操作（在异步操作完成前，往往不能进行任何操作，此时忽略此步骤）？
+4. 等待异步操作完成（通过 token）
+5. 执行其它操作
+
+### 异步方法语法和语义
+
+* async 修饰符可以放在返回类型之前的任何位置
+* async 方法只能返回 void、Task、Task<T>；之所以设计为可返回 void，是为了与事件处理程序兼容，即可将事件处理程序设为异步方法；因为调用事件的代码并不关心事件什么时候处理完毕，所以不需要返回 Task
+* async 修饰符在生成的代码中没有作用，只是给方法应用一个特性，可以将异步方法当成一个可能返回 Task 的普通方法看待
+* 异步方法的参数不能使用 out、ref 修饰符
+* await 表达式不能在 catch/finally 块、非异步匿名函数、lock 语句块或不安全代码中使用，都是为了保证安全
+
+* await 等待的对象类型必须拥有 `GetAwaiter()` 方法（实例方法或扩展方法均可），返回 awaiter（如 `TaskAwaiter`）；该 awaiter 实现了 `INotifyCompletion`（含有方法 `void OnCompleted(Action continuation)`），且含有成员 `IsCompleted` 和 `GetResult()`；await 表达式的值为 `GetResult()` 的值，若为 void，则只是独立语句 
 
 # Asp .Net MVC5
 
