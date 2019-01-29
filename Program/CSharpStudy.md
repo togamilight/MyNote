@@ -943,6 +943,44 @@ delegate void Action<in T>()
 
 等进一步消化下
 
+# 异步编程 async/await
+
+## 异步函数
+
+异步函数是指，用 `async` 修饰符声明的，可包含 `await` 表达式的方法或匿名函数。其中，`await` 代表的意思是。如果该表达式等待的值还不可用，那么异步函数立即返回，当该值可用时，异步函数将（在适当的线程上）回到离开的地方继续执行
+
+### WinForm 示例
+
+异步通常用来完成耗时操作，比如网络连接，让该操作不会阻塞线程。用在 WinForm 中，可使程序符合两条守则：① 不在 UI 线程上执行耗时操作；② 只在 UI 线程访问 UI 控件
+```CSharp
+class AsyncForm : Form{
+  Label label;
+  Button button;
+
+  public AsyncForm(){
+    label = new Label { Location = new Point(10, 20), Text = "Length" };
+    button = new Button { Location = new Point(10, 50), Text = "Click" };
+
+    button.Click += DisplayWebSiteLength;
+
+    AutoSize = true;
+    Controls.Add(label);
+    Controls.Add(button);
+  }
+
+  async void DisplayWebSiteLength(object sender, EventArgs e){
+    label.Text = "Fetching...";
+    using(var client = new HttpClient()){
+      Task<string> task = client.GetStringAsync("http://csharpindepth.com");
+      string text = await task;
+      label.Text = text.Length.ToString();
+    }
+  }
+}
+```
+
+程序运行到 `await` 时，若该表达式结果不存在（几乎总是如此），则安排一个在其后执行的后续操作，后续操作将跳到 `await` 表达式的末尾，执行剩下的代码。Task 包含一个专门用于添加后续操作的方法：Task.ContinueWith
+
 # Asp .Net MVC5
 
 ### 控制器Controller
