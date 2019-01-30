@@ -1052,6 +1052,57 @@ class AsyncForm : Form{
 
 * await 等待的对象类型必须拥有 `GetAwaiter()` 方法（实例方法或扩展方法均可），返回 awaiter（如 `TaskAwaiter`）；该 awaiter 实现了 `INotifyCompletion`（含有方法 `void OnCompleted(Action continuation)`），且含有成员 `IsCompleted` 和 `GetResult()`；await 表达式的值为 `GetResult()` 的值，若为 void，则只是独立语句 
 
+### await 表达式的流
+
+执行过程到达 await 表达式时，等待中的异步操作可能**已完成或未完成**。已完成时继续往下执行；未完成则等待完成，所在方法不再执行，将后续操作附加在异步操作后，然后返回，异步操作确保该方法在正确的线程中恢复（线程池线程或 UI 线程）
+
+从一个异步方法返回时，分为两种情况：
+1. 是第一个等待的 await 表达式，原始调用者仍位于栈中的某个位置
+2. 已经等待了其它操作，处于某个操作调用的后续操作中，调用栈与第一次进入该方法时相比，发生了很大变化  
+情况一中，一般会返回 Task/Task<T> 给调用者；  
+情况二中，“某个操作”的回调取决于上下文，比如在 WinForm 的 UI 线程上启动异步方法，整个方法在 UI 线程上执行，在方法的第一部分，处于某个事件处理程序或其它启动异步方法的地方，然后可直接由消息泵进行回调，这时，调用代码并不关心你的任务
+
+* 具体流程: 
+  1. 获取并记住 awaiter：awaitable.GetAwaiter()
+  2. 判断操作是否完成：awaiter.IsCompleted
+  3. 未完成则附加后续操作并返回：awaiter.OnCompleted(action)
+  4. 完成时通过后续操作恢复
+  5. 获取结果：awaiter.GetResult()
+
+[>_<]:
+    ```flow
+      st=>start: 其它操作
+      op1=>operation: 对表达式求值（可等待的）
+      op2=>operation: awaitable.GetAwaiter()
+      op3=>operation: 记住 awaiter（后面需要）
+      op4=>operation: 附加后续操作 awater.OnCompleted(action)
+      op5=>operation: 返回
+      op6=>operation: awaiter.GetResult()
+      cond=>condition: awaiter.IsCompleted
+      e=>end: 执行后续操作
+
+      st->op1->op2->cond
+      cond(yes)->op6->e
+      cond(no)->op3->op4->op5->op6->e
+    ```
+
+```mermaid
+graph TB
+  st["其它操作"]-->op1["对表达式求值<br>（可等待的）"]
+  op1-->op2["awaitable.GetAwaiter()"]
+  op2-->cond{"awaiter.IsCompleted"}
+  cond--false-->op3["记住 awaiter<br>（后面需要）"]
+  op3-->op4["附加后续操作<br>awater.OnCompleted(action)"]
+  op4-->op5["返回"]
+  op5-.通过后续操作恢复.->op6["awaiter.GetResult()"]
+  cond--true-->op6
+  op6-->e["执行后续操作"];
+```
+
+### 异步方法的返回值
+
+对于返回类型为 Task<T> 的异步方法，在方法内返回 T 的实例，该实例会自动被包装成 Task<T> 类型；而返回类型为 void 或 Task 的异步方法，则不需要返回语句，有也只能是 `return;`
+
 # Asp .Net MVC5
 
 ### 控制器Controller
