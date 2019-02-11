@@ -1050,7 +1050,9 @@ class AsyncForm : Form{
 * 异步方法的参数不能使用 out、ref 修饰符
 * await 表达式不能在 catch/finally 块、非异步匿名函数、lock 语句块或不安全代码中使用，都是为了保证安全
 
-* await 等待的对象类型必须拥有 `GetAwaiter()` 方法（实例方法或扩展方法均可），返回 awaiter（如 `TaskAwaiter`）；该 awaiter 实现了 `INotifyCompletion`（含有方法 `void OnCompleted(Action continuation)`），且含有成员 `IsCompleted` 和 `GetResult()`；await 表达式的值为 `GetResult()` 的值，若为 void，则只是独立语句 
+* await 等待的对象类型必须拥有 `GetAwaiter()` 方法（实例方法或扩展方法均可），返回 awaiter（如 `TaskAwaiter`）；该 awaiter 实现了 `INotifyCompletion`（含有方法 `void OnCompleted(Action continuation)`），且含有成员 `IsCompleted` 和 `GetResult()`；await 表达式的值为 `GetResult()` 的值(类型为 Task<T> 的 T)，若为 void，则只是独立语句 
+
+* `await Task.Yield()`：`Task.Yield()` 是一个静态方法，是一个空任务，可以让之后的操作重新排队从线程池中申请线程继续执行，将线程资源先让给其它操作；该方法返回 `YieldAwaitable`，其 `GetAwaiter()` 方法返回 `YieldAwaitable.YieldAwaiter`，该 awaiter 的 `GetResult()` 返回 void
 
 ### await 表达式的流
 
