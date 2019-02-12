@@ -1032,7 +1032,7 @@ class AsyncForm : Form{
 
 * 前面代码异步执行后，能正确回到 UI 线程继续执行，是因为使用了 SynchronizationContext 类
 
-### 异步方法执行步骤
+## 异步方法执行步骤
 基于任务的异步模式，在异步操作开始时返回一个 token（通常为 Task/Task<T>），表示正在进行的操作，在这个操作完成前，不能进行下一步处理；可以用这个 token 在稍后提供后续操作
 
 异步方法的执行通常遵守以下流程：
@@ -1042,7 +1042,7 @@ class AsyncForm : Form{
 4. 等待异步操作完成（通过 token）
 5. 执行其它操作
 
-### 异步方法语法和语义
+## 异步方法语法和语义
 
 * async 修饰符可以放在返回类型之前的任何位置
 * async 方法只能返回 void、Task、Task<T>；之所以设计为可返回 void，是为了与事件处理程序兼容，即可将事件处理程序设为异步方法；因为调用事件的代码并不关心事件什么时候处理完毕，所以不需要返回 Task
@@ -1071,23 +1071,6 @@ class AsyncForm : Form{
   4. 完成时通过后续操作恢复
   5. 获取结果：awaiter.GetResult()
 
-[>_<]:
-    ```flow
-      st=>start: 其它操作
-      op1=>operation: 对表达式求值（可等待的）
-      op2=>operation: awaitable.GetAwaiter()
-      op3=>operation: 记住 awaiter（后面需要）
-      op4=>operation: 附加后续操作 awater.OnCompleted(action)
-      op5=>operation: 返回
-      op6=>operation: awaiter.GetResult()
-      cond=>condition: awaiter.IsCompleted
-      e=>end: 执行后续操作
-
-      st->op1->op2->cond
-      cond(yes)->op6->e
-      cond(no)->op3->op4->op5->op6->e
-    ```
-
 ```mermaid
 graph TB
   st["其它操作"]-->op1["对表达式求值<br>（可等待的）"]
@@ -1103,7 +1086,42 @@ graph TB
 
 ### 异步方法的返回值
 
-对于返回类型为 Task<T> 的异步方法，在方法内返回 T 的实例，该实例会自动被包装成 Task<T> 类型；而返回类型为 void 或 Task 的异步方法，则不需要返回语句，有也只能是 `return;`
+对于返回类型为 Task<T> 的异步方法，在方法内返回 T 的实例，该实例会自动被包装成 Task<T> 类型；而返回类型为 void 或 Task 的异步方法，则不需要返回语句，有也只能是 `return;`；这两种情况下，任务都会在异步方法中传播抛出的异常
+
+### 异常
+
+#### 在等待时抛出异常
+
+awaiter 的 GetResult() 方法可获取返回值，若存在异常，它还负责将异常从异步操作传递回方法中
+
+Task 有多种方式表示异常：
+* 当异步操作失败时，任务的 `Status` 变为 `Faulted`（并且 `IsFaulted` 返回 true）
+* 任务的 `Exception` 属性返回一个 `AggregateException`，包含所有造成任务失败的异常（可能多个）；若任务没有错误，则返回 null
+* 若任务的最终状态为错误，则 **任务的`Wait()`方法** 以及 **Task<T>的`Result`属性** 将抛出一个 `AggregateException`
+* 此外，任务支持取消操作，通过 `CancellationTokenSource` 和 `CancellationToken` 实现；若任务取消，**任务的`Wait()`方法** 以及 **Task<T>的`Result`属性** 将抛出包含 `TaskCanceledException`(继承自 `OperationCanceledException`)的 `AggregateException`，并将 `Status` 置为 `Canceled`
+
+在 await 任务时，任务出错或取消都会抛出异常，但不是 `AggregateException`，而是其中的第一个异常；若需要抛出完整的 `AggregateException`，可通过自行编写扩展方法返回自定义 awaitable 对象来实现（代码清单15-2）
+
+#### 在抛出异常时进行包装
+
+异步方法在调用时不会直接抛出异常，方法内抛出的异常会传递给返回的 Task/Task<T>，调用者则以上面的方式捕获异常；返回 void 的异步方法可向原始的 `SynchronizationContext` 报告异常，如何处理将取决于上下文  
+
+由于调用者在 await 时才会接收到异常，所以异步方法在参数验证时抛出的异常就无法立即抛出；  
+解决方法一：将参数验证与实现分离
+```CSharp
+//没有 async 修饰符，不是异步方法，异常会立刻抛出
+static Task<int> ComputeLengthAsync(string text){
+  if(text == null){
+    throw new ArgumentNullException("text");
+  }
+  return ComputeLengthAsyncImpl(text);
+}
+static async Task<int> ComputeLengthAsyncImpl(string text){
+  ...
+  return text.Length;
+}
+```
+解决方法二：使用异步匿名函数
 
 # Asp .Net MVC5
 
