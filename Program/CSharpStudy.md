@@ -3204,6 +3204,33 @@ T中的属性必须与必须与查询出来的语句完全一致，否则会出�
 * 获取 Connection 后调用 Open 方法打开连接，使用后必须关闭连接，否则数据库连接不会自动关闭，也不会放回连接池；而且在其后调用 EF 的实体进行查询的话，会抛出异常：**"只能使用关闭的 DbConnection 构造 EntityConnection"**
 * Connection 应该使用 Close 方法关闭，不要使用 using 块，否则若在其后调用 EF 的实体进行操作，会抛出异常：**"基础提供程序在 Open 上失败"**
 
+### EF5 开启事务（可多次SaveChanges）
+
+将 DbContext 转换为 `System.Data.Entity.Infrastructure.IObjectContextAdapter`，打开其中的 ObjectContext 的连接，在该连接上开启事务，可覆盖多个 SaveChanges，也可覆盖 ExecuteSqlCommand。同样的，使用后必须 Close 连接
+```CSharp
+  var context = new MyDbContext();
+  var adapter = context as IObjectContextAdapter;
+  var conn = adapter.ObjectContext.Connection;
+  if(conn.State != System.Data.ConnectionState.Open)
+    conn.Open();
+  var trans = conn.BeginTransaction();
+  try {
+      ...
+      context.SaveChanges();
+      context.Database.ExecuteSqlCommand("...");
+      ...
+      context.SaveChanges();
+
+      trans.Commit();
+  }catch (Exception) {
+      trans.Rollback();
+      throw;
+  }finally{
+      trans.Dispose();
+      conn.Close();
+  }
+```
+
 ### DbSet
 
 * 在**DbContext**中，可以事先设定各个实体的**DbSet**，也可以通过**DbContext.Set<TEntity>()**动态设置,而且,如果事先已经设有该实体的**DbSet**属性,将会得到该属性而不会创建重复的!
