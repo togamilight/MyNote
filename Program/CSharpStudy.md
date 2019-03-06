@@ -1033,6 +1033,7 @@ class AsyncForm : Form{
 * 前面代码异步执行后，能正确回到 UI 线程继续执行，是因为使用了 SynchronizationContext 类
 
 ## 异步方法执行步骤
+
 基于任务的异步模式，在异步操作开始时返回一个 token（通常为 Task/Task<T>），表示正在进行的操作，在这个操作完成前，不能进行下一步处理；可以用这个 token 在稍后提供后续操作
 
 异步方法的执行通常遵守以下流程：
@@ -1104,7 +1105,7 @@ Task 有多种方式表示异常：
 
 #### 在抛出异常时进行包装
 
-异步方法在调用时不会直接抛出异常，方法内抛出的异常会传递给返回的 Task/Task<T>，调用者则以上面的方式捕获异常；返回 void 的异步方法可向原始的 `SynchronizationContext` 报告异常，如何处理将取决于上下文  
+调用异步方法后，抛出的异常不会立刻接收到，直到等待时，方法内抛出的异常才会传递给返回的 Task/Task<T>（包括从其它同步异步操作传播过来的异常），调用者则以上面的方式捕获异常；返回 void 的异步方法可向原始的 `SynchronizationContext` 报告异常，如何处理将取决于上下文  
 
 由于调用者在 await 时才会接收到异常，所以异步方法在参数验证时抛出的异常就无法立即抛出；  
 解决方法一：将参数验证与实现分离
@@ -1122,6 +1123,17 @@ static async Task<int> ComputeLengthAsyncImpl(string text){
 }
 ```
 解决方法二：使用异步匿名函数
+
+#### 处理取消
+
+任务并行库 (TPL) 引入了一套统一的取消模型：  
+创建一个 `CancellationTokenSource`，然后向其请求一个 `CancellationToken`，并传递给异步操作。可在 source 上执行取消操作，会反映到 token 上，可以给多个操作传递同一个 token，不会互相干扰；而在 token 上取消则一般是调用 `ThrowIfCancellationRequested`  
+取消操作时，异步方法内抛出 `OperationCanceledException`（或其派生类），返回的任务的状态为 `Canceled`；**手动抛出该类异常**也是同样效果，因此取消操作具有传播性，await 任务时，该异常会继续抛出，继续取消操作
+
+### 异步匿名函数
+
+用 async 修饰的匿名函数，可用来创建异步操作的委托，同样的，返回类型必须是 void、Task/Task<T>；无法用其创建表达式树，更无法用于 LINQ
+
 
 # Asp .Net MVC5
 
