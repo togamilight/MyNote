@@ -1033,6 +1033,7 @@ class AsyncForm : Form{
 * 前面代码异步执行后，能正确回到 UI 线程继续执行，是因为使用了 SynchronizationContext 类
 
 ## 异步方法执行步骤
+
 基于任务的异步模式，在异步操作开始时返回一个 token（通常为 Task/Task<T>），表示正在进行的操作，在这个操作完成前，不能进行下一步处理；可以用这个 token 在稍后提供后续操作
 
 异步方法的执行通常遵守以下流程：
@@ -1104,7 +1105,7 @@ Task 有多种方式表示异常：
 
 #### 在抛出异常时进行包装
 
-异步方法在调用时不会直接抛出异常，方法内抛出的异常会传递给返回的 Task/Task<T>，调用者则以上面的方式捕获异常；返回 void 的异步方法可向原始的 `SynchronizationContext` 报告异常，如何处理将取决于上下文  
+调用异步方法后，抛出的异常不会立刻接收到，直到等待时，方法内抛出的异常才会传递给返回的 Task/Task<T>（包括从其它同步异步操作传播过来的异常），调用者则以上面的方式捕获异常；返回 void 的异步方法可向原始的 `SynchronizationContext` 报告异常，如何处理将取决于上下文  
 
 由于调用者在 await 时才会接收到异常，所以异步方法在参数验证时抛出的异常就无法立即抛出；  
 解决方法一：将参数验证与实现分离
@@ -1122,6 +1123,193 @@ static async Task<int> ComputeLengthAsyncImpl(string text){
 }
 ```
 解决方法二：使用异步匿名函数
+
+#### 处理取消
+
+任务并行库 (TPL) 引入了一套统一的取消模型：  
+创建一个 `CancellationTokenSource`，然后向其请求一个 `CancellationToken`，并传递给异步操作。可在 source 上执行取消操作，会反映到 token 上，可以给多个操作传递同一个 token，不会互相干扰；而在 token 上取消则一般是调用 `ThrowIfCancellationRequested`  
+取消操作时，异步方法内抛出 `OperationCanceledException`（或其派生类），返回的任务的状态为 `Canceled`；**手动抛出该类异常**也是同样效果，因此取消操作具有传播性，await 任务时，该异常会继续抛出，继续取消操作
+
+### 异步匿名函数
+
+用 async 修饰的匿名函数，可用来创建异步操作的委托，同样的，返回类型必须是 void、Task/Task<T>；无法用其创建表达式树，更无法用于 LINQ
+
+## 实现细节：编译器转换
+
+```CSharp
+//CodeList 15-11 简单源代码实例，一个没有实际意义的异步方法
+static async Task<int> SumCharactersAsync(IEnumerable<vhar> text){
+  int total = 0;
+  foreach(char ch in text){
+    int unicode = ch;
+    await Task.Delay(unicode);
+    total += unicode;
+  }
+  await Task.Yield();
+  return total; 
+}
+```
+
+### 骨架方法
+
+异步方法编译后，编译器生成一个私有的内嵌结构来表示该方法，其中包含一个骨架方法，其签名与异步方法相同；骨架方法创建状态机，并执行第一个步骤（await 之前的代码），然后返回一个表示状态机进度的任务，状态机负责之后的事项。当异步操作完成时，状态机调用后续操作，继续执行代码，直到方法结束、抛出异常或遇到另一个 await，遇到 await 时继续附加后续操作，否则设置 Task 的结果；然后向调用者返回 Task（仅第一次）
+
+```CSharp
+//编译生成的骨架方法
+[DebuggerStepThrough]
+[AsyncStateMachine(typeof(DemoStateMachine))]
+static Task<int> SumCharacterAsync(IEnumerable<char> text){
+  var machine = new DemoStateMachine();
+  machine.text = text;  //参数，有几个参数就有几个字段
+  //将状态机和骨架方法联系在一起；对于返回 Task 的，有非泛型的类；对于返回 void 的 使用 AsyncVoidMethodBuilder 结构
+  machine.builder = AsyncTaskMethodBuilder<int>.Create(); 
+  machine.state = -1; //初始值永远为 -1 
+  machine.builder.Start(ref machine); //ref 避免创建状态机和 builder 的复本（两者都是 struct）
+  return machine.builder.Task;
+}
+```
+
+骨架方法让状态机同步执行第一个步骤（await 前的代码），并在方法完成时或到达需等待的异步操作点时得以返回，返回 builder 中的 Task；状态机结束时，使用 builder 来设置结果或异常
+
+### 状态机
+
+状态机使用显示接口实现，实现了 IAsyncStateMachine 接口，只包含该接口的两个方法： MoveNext, SetStateMachine
+
+```CSharp
+[CompilerGenerated]
+private struct DemoStateMachine: IAsyncStateMachine{
+  //方法的参数----------------------
+  public IEnumerable<char> text;
+
+  //方法的局部变量------------------
+  public IEnumerable<char> iterator;
+  public char ch;
+  public int total;
+  public int unicode;
+
+  //方法里的 awaiter---------------
+  private TaskAwaiter taskAwaiter;
+  private YieldAwaitable.YieldAwaiter yieldAwaiter;
+
+  //通用字段--------------------------------
+  //跟踪踪迹，以便后续操作能回到代码正确位置
+  public int state; 
+  //多功能，如创建骨架方法返回的 Task，内含正确结果
+  public AsyncTaskMethodBuilder<int> builder;
+  //当 await 表达式作为语句的一部分出现，且需跟踪一些额外状态（非普通局部变量），才会使用
+  private object stack;
+
+  void IAsyncStateMachine.MoveNext(){...}
+  [DebuggerHidden]
+  //在 builder 内部，让一个已装箱状态机的复本保留有对自身的引用
+  //防止身为结构体的状态机的不同复本被进行不同更改？
+  void IAsyncStateMachine.SetStateMachine(IAsyncStateMachine machine){
+    builder.SetStateMachine(machine);
+  }
+}
+```
+
+由于需要在多次调用 MoveNext() 时保存变量的值，所以每个局部变量对应一个字段；有的局部变量只在两个特殊的 await 表达式之间使用？无需字段，但实现总会将它们提升为字段。  
+异步方法中的 awaiter 如果是**值类型**，则每个类型都有一个对应的字段；若为**引用类型**，则所有 awaiter 共享一个字段
+
+#### MoveNext()
+
+包含原始方法的所有逻辑，从一开始就投入使用，可用于所有 await 表达式的后续操作；方法内部存在一个基于 state 的 switch 语句，每次调用 MoveNext() 方法时就通过 state 字段计算出方法要跳转的位置，通过 goto 语句跳转过去，每次状态只执行一次操作
+
+```CSharp
+void IStateMachine.MoveNext(){
+  //对于声明返回 Task<int> 的异步方法
+  int result;
+  try{  
+    bool doFinallyBodies = true;
+    switch(state){
+      //跳转到正确位置
+    }
+
+    //方法主体
+  }catch(Exception e){
+    state = -2;
+    builder.SetException(e);
+    return;
+  }
+  state = -2;
+  builder.SetResult(result);
+}
+```
+
+* 初始 state 为 -1，方法执行时也是 -1，非负值均表示一个后续操作目标，结束时为 -2；  
+* 方法执行过程中，在原始方法的 return 语句处，会设置 result 变量；然后在到达方法的逻辑末尾时，将其用于 builder.SetResult() 的调用
+* doFinallyBodies 变量用于判断在执行过程立刻 try 块作用域时，原始代码中的 finally 块(包括 using/foreach 语句中的隐式 finally 块)是否执行，如果只是因为附加后续操作到 awaiter 上后从方法中返回，不应该执行 finally 块。finally 块出现在上面代码中的“方法主体”中
+
+### 围绕 await 表达式的控制
+
+任何 await 表达式均表示执行路径的一个分支。   
+首先，获取正在等待的异步操作的 awaiter，检查其 IsCompleted 属性，若 true，则立即获得结果并继续；否则进行以下处理：
+1. 存储 awaiter，供后面使用
+2. 更新 state，表示从哪里继续
+3. 为 awaiter 附加后续操作
+4. 从 MoveNext() 返回，确保不会执行 finally 块
+然后，在调用后续操作时，需跳转到正确位置，获取 awaiter 并重置状态，然后继续
+
+前文代码清单 15-11 中第一个 await 表达式 `await Task.Delay(unicode);`， 生成的代码如下：
+```CSharp
+  TaskAwaiter localTaskAwaiter = Task.Delay(unicode).GetAwaiter();
+  if(localTaskAwaiter.IsCompleted){
+    goto DemoAwaitCompletion;
+  }
+  state = 0;
+  taskAwaiter = localTaskAwaiter;
+  builder.AwaitUnsafeOnCompleted(ref localTaskAwaiter, ref this);
+  doFinallyBodies = false;
+  return;
+DemoAwaitContinuation:
+  localTaskAwaiter = taskAwaiter;
+  taskAwaiter = default(TaskAwaiter);
+  state = -1;
+DemoAwaitCompletion:
+  localTaskAwaiter.GetResult();
+  localTaskAwaiter = default(TaskAwaiter);
+```
+
+以上代码及时消除了 awaiter 的局部变量和实例变量，以便能适时进行垃圾回收
+
+### 跟踪栈
+
+在带有 await 表达式的表达式中，由于需要等待 await 表达式的值，整个表达式中其它变量无法立即存入栈中，因为可能从 MoveNext() 方法中返回，需要将其存放在状态机的逻辑栈 stack 中，会引起装箱，但可只使用一个 stack，在后续操作中才真正使用该值，存入内存栈中；若同时有多个变量需要存储，则使用 Tuple。如：
+```CSharp
+Console.WriteLine("{0}: {1}", x, await task);
+
+//编译器处理后
+  string localArg0 = "{0}: {1}";
+  int localArg1 = x;
+  localAwaiter = task.GetAwaiter();
+  if(localAwaiter.IsCompleted){
+    goto SecondAwaitCompletion;
+  }
+  var localTuple = new Tuple<string, int>(localArg0, localArg1);
+  stack = localTuple;
+  state = 1;
+  awaiter = localAwaiter;
+  builder.AwaitUnsafeOnCompleted(ref awaiter, ref this);
+  doFinallyBodies = false;
+  return;
+SecondAwaitContinuation:
+  localTuple = (Tuple<string, int>)stack;
+  localArg0 = localTuple.Item1;
+  localArg1 = localTuple.Item2;
+  stack = null;
+  localAwaiter = awaiter;
+  awaiter = default(TaskAwaiter<int>);
+  state = -1;
+SecondAwaitCompletion:
+  int localArg2 = localAwaiter.GetResult();
+  Console.WriteLine(localArg0, localArg1, localArg2);
+```
+
+## 高效使用异步
+
+* 基于 IO 的操作会将工作移交给硬盘或其它计算机，适合异步；CPU 密集型的人物则不适合异步
+* 避免使用调用者上下文，而应该使用 task.ConfigureAwait(continueOnCapturedContext: bool) 方法，UI 线程调用的异步方法设为 true，这样后续操作仍在 UI 线程上执行；设为 false 则后续操作通常在原始操作完成的上下文中（表示不关心后续操作在哪里执行）
 
 # Asp .Net MVC5
 
