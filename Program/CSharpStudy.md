@@ -1311,6 +1311,59 @@ SecondAwaitCompletion:
 * 基于 IO 的操作会将工作移交给硬盘或其它计算机，适合异步；CPU 密集型的人物则不适合异步
 * 避免使用调用者上下文，而应该使用 task.ConfigureAwait(continueOnCapturedContext: bool) 方法，UI 线程调用的异步方法设为 true，这样后续操作仍在 UI 线程上执行；设为 false 则后续操作通常在原始操作完成的上下文中（表示不关心后续操作在哪里执行）
 
+### 组合异步操作
+
+#### 单个调用中收集结果
+
+```CSharp
+var tasks = urls.Select(async url => {
+  using(var client = new HttpClient()){
+    return await client.GetStringAsync(url);
+  }
+}).ToList();
+//所有任务结束后，将结果收集到数组中后，等待才会终止
+string [] results = await Task.WhenAll(tasks);
+```
+
+#### 全部完成时收集结果
+
+```CSharp
+//CodeList 15-12 按完成顺序将任务序列存放到新的集合
+static IEnumerable<Task<T>> InCompletionOrder<T>(this IEnumerable<Task<T>> sources) {
+    var inputs = sources.ToList();
+    //TaskCompletionSource 类型用来创建一个尚未包含结果的 Task
+    var boxes = inputs.Select(x => new TaskCompletionSource<T>()).ToList();
+
+    int i = -1;
+    foreach(var task in inputs) {
+        task.ContinueWith(completed => {
+            //Interlocked.Increment 在多线程中控制数字的自增
+            var nextBox = boxes[Interlocked.Increment(ref i)];
+            //把结果或异常传播到 nextBox 上
+            PropagateResult(completed, nextBox);
+        }, TaskContinuationOptions.ExecuteSynchronously);
+    }
+
+    return boxes.Select(box => box.Task);
+}
+
+//调用
+static async Task<int> ShowPageLengthsAsync(params string[] urls){
+  var tasks = urls.Select(async url =>{
+    using(var client = new HttpClient()){
+      return await client.GetStringAsync(url);
+    }
+  }).ToList();
+  int total = 0;
+  foreach(var task in tasks.InCompletionOrder()){
+    string page = await task;
+    Console.WriteLine(page.Length);
+    total += page.Length;
+  }
+  return total;
+}
+```
+
 # Asp .Net MVC5
 
 ### 控制器Controller
