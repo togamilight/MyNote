@@ -149,19 +149,57 @@ SQL Server 和 MySQL 都可以为单个会话关闭自动提交模式，以第�
 可以在事务内部创建一或多个保存点，利用它们来回滚到特定位置而不用回滚整个事务。
 
 ```sql
-DECLARE t_error INTEGER DEFAULT 0;  
-DECLARE CONTINUE HANDLER FOR SQLEXCEPTION SET t_error=1; 
+BEGIN
+
+DECLARE EXIST HANDLER FOR SQLEXCEPTION 
+ROLLBACK TO SAVEPOINT point1;   --回滚到保存点
 
 START TRANSACTION;
-
 UPDATE ...;
-
 SAVEPOINT point1;   --保存点
-
 UPDATE ...;
+COMMIT;
 
-IF t_error = 1 THEN  
-    ROLLBACK TO SAVEPOINT point1;   --回滚到保存点  
-ELSE COMMIT; 
-END IF;  
+END;
 ```
+
+## MySQL 引擎与事务
+
+Oracle 和 SQL Server 都有单独的一套代码负责低级别的数据库操作，但 MySQL 则是可以用多个存储引擎提供低级别的数据库功能，比如资源锁定和事务管理。  
+
+MySQL 6.0 的存储引擎：
+* MyISAM: 表级锁定非事务引擎
+* MEMORY: 供内存表使用的非事务引擎
+* BDB: 页级锁定事务引擎
+* InnoDB: 行级锁定事务引擎
+* Merge: 使多个相同 MyISAM 看起来像一个单表（也叫表分割）的专用引擎
+* Maria: 6.0.6 版本中 MyISAM 的替代品，添加了充分的恢复功能
+* Falcon: 行级锁定的高性能事务引擎
+* Archive: 用于存储大量未索引数据的专用引擎，主要用来存档
+
+对于参与事务的表，一般用 InnoDB 或 Falcon，采用**行级锁和版本控制**提供最高级别的并行能力
+
+```SQL
+--查看表
+SHOW TABLE STATUS LIKE 'table_name';
+--改变表的引擎
+ALTER TABLE table_name ENGINE = INNODB;
+```
+
+# 第 13 章 索引和约束
+
+## 索引
+
+可以参考的索引策略：
+* 确保所有主键被索引（大部分数据库会在创建主键约束是自动生成唯一索引）；对于多列主键，考虑为主键列的子集构建附加索引，或以与主机约束定义不同的顺序为所有主键列另外生成索引？
+* 为所有被外键约束引用的列创建索引
+* 索引那些被频繁检索的列，除了短字符串列（3~50个字符），大多数日期列也是不错的候选
+
+## 约束
+
+* 主键约束：标志一或多列，并保证其值在表内唯一
+* 外键约束：限制一或多列的值必须被包含在另一表的外键列中，并且在级联更新或级联删除规则建立后也可以限制其他表中的可用值
+* 唯一约束：限制一或多列的值，保证其在表里唯一
+* 检查约束：限制一列的可用值范围
+
+使用主键约束和唯一约束时，会自动生成唯一索引；使用外键约束时，MySQL 会生成soyn
