@@ -530,11 +530,11 @@ HTTP/1.1 中定义了 7 种警告，警告码对应的内容仅推荐参考；�
 ### Authorization
 
 用户代理的认证信息（证书值）  
-通常，若请求的资源需要 HTTP 认证，服务器会返回 401 Unauthorized 状态码，用户代理接收后会把 Authorization 首部加入到请求中（具体可参阅 RFC2616）
+通常，若请求的资源需要 HTTP 认证，服务器会返回 **401 Unauthorized** 状态码，用户代理接收后会把 Authorization 首部加入到请求中（具体可参阅 RFC2616）
 
 ### Except
 
-告知服务器，期望出现的某种特定行为，若服务器无法理解，则返回 417 Expectation Failed  
+告知服务器，期望出现的某种特定行为，若服务器无法理解，则返回 **417 Expectation Failed**  
 HTTP/1.1 值定义了 100-continue（期望返回状态码 100 Continue）
 
 ### From
@@ -546,3 +546,36 @@ HTTP/1.1 值定义了 100-continue（期望返回状态码 100 Continue）
 指定请求资源所处的互联网主机名和端口号；  
 当请求发送到服务器时，请求中的主机名会被 IP 地址直接替换，若该 IP 地址下部署多个域名（虚拟主机），则服务器无法分辨该请求对应哪个域名，所以需要 Host 首部来指定；若服务器未设定主机名，则直接发送一个空值  
 是 HTTP/1.1 唯一必须包含在请求中的首部字段  
+
+### If-Match
+
+形如 If-xxx 的首部成为条件请求，服务器接到附带条件的请求后，判断指定条件为真时，才会执行请求。  
+
+If-Match 指定匹配资源所用的实体标记（ETag）值，这时服务器无法使用弱 ETag 值，当ETag 不匹配时，返回状态码 **412 Precondition Failed**；指定值为 '*' 时，匹配任意 ETag
+
+### If-Modified-Since
+
+指定一个时间，当资源在这个时间之后有过更新时，才处理请求，否自返回状态码 **304 Not Modified**
+
+### If-None-Match
+
+与 If-Match 相反。在 GET 或 HEAD 方法中使用，可获取最新修改的资源，与 If-Modified-Since 有些类似
+
+### If-Range
+
+指定 ETag 值或时间，与 Range 搭配使用，如：
+```HTTP
+If-Range: "123456"
+Range: bytes=5001-10000
+```
+若资源的 ETag 值或修改时间匹配，则请求作为范围请求处理，否则返回完整资源
+
+### If-Unmodified-Since
+
+与 If-Modified-Since 相反，若资源在指定时间后更新过，返回状态码 **412 Precondition Failed**
+
+### Max-Forwards
+
+值为十进制整数；在 TRACE 或 OPTIONS 方法中，指定可经过的服务器的最大数目，每次转发前减一，当值为 0 时返回响应
+
+
