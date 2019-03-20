@@ -1364,6 +1364,27 @@ static async Task<int> ShowPageLengthsAsync(params string[] urls){
 }
 ```
 
+### 单元测试 
+--以后再看吧
+
+### 可等待模式
+--这节没太懂
+
+IAwaiter 继承于接口 INotifyCompletion:
+```CSharp
+public interface INotifyCompletion{
+  void OnCompleted(Action contiuation);
+}
+//另一个扩展了上述接口，并且也位于 System.Runtime.CompilerServices 命名空间的接口
+public interface ICriticalNotifyCompletion: INotifyCompletion{
+  void UnsafeOnCompleted(Action continuation);
+}
+```
+
+两个接口的核心都是上下文，如 `SynchronizationContext`，一个能将调用封送到适当线程的同步上下文，不管该线程时特定的线程池线程还是 UI 线程；此外还有 `SecurityContext`, `LogicalCallContext`, `HostExecutionContext` 等大量上下文，它们的最上层结构，也即它们的容器是 `ExecutionContext`  
+`ExecutionContext` 会跨过 await，为传递上下文，需在附加后续操作时捕获它，在执行后续操作时还原它，分别由 `ExecutionContext.Capture` 和 `ExecutionContext.Run` 方法实现  
+有两段代码可执行捕获/还原操作，awaiter 和 AsyncTaskMethodBuilder<T> 类（及其兄弟类）  
+使用上述两个接口，若实现INotifyCompletion，则OnCompleted 传递执行上下文；若实现ICriticalNotifyCompletion，则UnsafeOnCompleted 不应传递执行上下文，而应标记上 `[SecurityCritical]` 特性，以阻止不信任的代码调用。当然，方法的 builder 是可信任的，由它传递上下文，可保证部分可信的调用者仍能有效地使用 awaiter
 # Asp .Net MVC5
 
 ### 控制器Controller
