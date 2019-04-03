@@ -240,3 +240,45 @@ InnoDB 比较灵活，可以把过长的 VARCHAR 存储为 BLOB；
 用于存储庞大数据，分别采用二进制(BLOB)和字符(TEXT)方式存储；  
 BLOB: TINYBLOB, SMALLBLOB, BLOB, MEDIUMBLOB, LONGBLOB；(SMALLBLOB=BLOB)  
 TEXT: TINYTEXT, SMALLTEXT, TEXT, MEDIUMTEXT, LONGTEXT；(SMALLTEXT=TEXT)  
+
+与其它类型不同，每个 BLOB 和 TEXT 值被当做独立对象处理，存储引擎在存储时通常会做特殊处理：当其值太大时，InnoDB 会使用专门的“外部”存储区域来存储，此时每个值在行内需要 1~4 个字节存储一个指针，在外部存储区域存储实际的值；  
+BLOB 存储二进制数据，没有排序规则和字符集，TEXT 类型则有；  
+BLOB/TEXT 列排序时只对最前 max_sort_length 字节进行比较，若还需缩短，可以设置 max_sort_length，也可使用 SUBSTRING(column, length)；  
+无法对全部长度的字符串进行索引，也不能用索引消除排序；  
+
+* Memory 不支持 BLOB/TEXT，如果查询使用了 BLOB/TEXT 列且需要使用隐式临时表，将不得不使用 MyISAM 磁盘临时表；可以使用 SUBSTRING(column, length) 将值转换为字符串，就可以使用内存临时表，但截取的长度不能超过 max_heap_table_size 或 tmp_table_size；如果 EXPLAIN 执行计划的 Extra 列包含 Using temporary，说明这个查询使用了隐式临时表
+
+#### ENUM
+
+枚举列可将多个不重复字符串存储成一个预定义合集，每个值在存储时保存为整数，根据枚举值的数量压缩到一或两个字节，并在表的 .frm 文件中保存“数字 - 字符串”映射关系的“查找表”；  
+排序时将按照存储的整数进行排序，用 FIELD() 函数可使用字符串进行排序，但这样无法用索引消除排序，或者可以在定义时按字母顺序排列；  
+缺点：字符串列表是固定的，添加和删除字符串都必须用 ALTER TABLE，除非只在列表末尾添加，这不需要重建整个表；  
+缺点：整数到字符串的转换需要一些开销，若用 CHAR/VARCHAR 关联 ENUM 会比关联 CHAR/VARCHAR 慢
+
+### 日期和时间类型
+
+最小时间粒度为秒，但也可以使用微秒级的粒度进行临时计算
+
+#### DATETIME
+
+1001 年至 9999 年，精度为秒，把日期和时间封装到格式为 YYYYMMDDHHmmSS 的整数中，与时区无关，使用 8 个字节的存储空间；默认以一种可排序、无歧义的格式显示："YYYY-MM-DD HH:mm:SS"，这是 ANSI 标准定义的日期时间表示方法；
+
+#### TIMESTAMP
+
+保存is 1970-01-01 午夜（格林威治标准时间）以来的秒数，与 UNIX 时间戳相同；只用 4 个字节的空间，范围比 DATETIME 小得多：1970 至 2038 年；  
+FROM_UNIXTIME() 函数可将其转换为 DATETIME，UNIX_TIMESTAMP() 则相反；  
+显示的值依赖于时区；  
+TIMESTAMP默认为 NOT NULL，且在更新和插入数据时，若不显式指定，第一个 TIMESTAMP 列的值将被设为当前时间；  
+
+应尽量使用 TIMESTAMP，因为它比 DATETIME 空间效率更高；若要存储比秒更小粒度的时间，可以使用 BIGINT 或 DOUBLE
+
+### 位数据类型
+
+#### BIT
+
+慎用！
+
+5.0 以前，BIT 就是 TINYINT，但现在是完全不同的类型；BIT(num) 可通过 num 指定位数，最大 64；  
+MyISAM 会打包存储所有的 BIT 列，所以 17 个单独的 BIT 列只需要 17 个位存储，即只需 3 个字节；Memory 和 InnoDB 等则用一个足够的最小整数来存储每个 BIT 列，不能节省空间；  
+BIT 被当做字符串而不是数字类型，检索时，结果是包含二进制 0 或 1 值的字符串，而不是 ASCII 码的 "0" 或 "1"，显示的是该二进制转换为十进制后对应的 ASCII 码的字符串，但在数字上下文场景中（将其 +0）则为转换后的十进制数字，很怪，慎用；  
+若要存储 true/false，除了 BIT 外还可使用可空的 CHAR(0) 列，可保存空值(NULL)或空字符串
