@@ -212,3 +212,164 @@ SRANDMEMBER Set Count
 SREM Set Val1 Val2 ...
 ...
 ```
+
+## ZSet
+
+有序集合，类似 Set，但是每个元素都会关联一个 double 类型的分数，通过分数进行**从小到大**的排序，元素唯一，但分数可以重复；个数小于 64 时，采用跳表实现，大于 64 时同时使用哈希和跳表两种方式实现
+```
+ZADD ZSet Score1 Val1 Score2 Val2 ...
+//成员数
+ZCARD ZSet
+//指定分数区间成员数
+ZCOUNT ZSet MinScor MaxScore
+//将指定成员的分数加上某个数值
+ZINCRBY ZSet Num Val
+//指定排名区间的成员
+ZRANGE ZSet LIndex RIndex
+ZREVRANGE ZSet LIndex RIndex                //分数从高到低排
+//指定分数区间内的成员
+ZRANGEBYSCORE ZSet MinScore MaxScore
+ZREVRANGEBYSCORE ZSet MinScore MaxScore     //分数从高到低排
+//指定成员的排名 
+ZRANK ZSet Val
+ZREVRANK ZSet Val   //分数从高到低排
+//删除
+ZREM ZSet Val1 Val2 ...
+ZREMRANGEBYRANK ZSet LIndex RIndex
+ZREMRANGEBYSCORE ZSet MinScore MaxScore
+//指定成员分数
+ZSCORE ZSet Val
+...
+//还有其它操作与 Set 类似
+```
+
+## HyperLogLog
+
+用于计算输入元素的基数（即输入的元素中不重复元素的个数），采用 HyperLogLog 算法，每个键只需要 12KB 的空间，能估算 2^64^ 个元素的基数，误差是 0.81%；  
+可用于统计网站不同 IP 访问量等
+```
+PFADD Key Val1 Val2 ...
+//估算基数
+PFCOUNT Key1 Key2 ...
+//多个合并成一个
+PFMERGE DestKey Key1 Key2 ...
+```
+
+* HyperLogLog DEMO: http://content.research.neustar.biz/blog/hll.html
+
+# 数据备份与恢复
+
+`SAVE` 命令将数据保存到安装目录下的 dump.rdb 文件，`BGSAVE` 可在后台执行保存操作；只要 dump.rdb 文件存在于安装目录下，启动 Redis 服务器时将自动加载到内存中
+
+# 安全
+
+设置密码后，客户端连接时需要密码验证
+```
+//设置密码
+CONFIG SET requirepass Password
+//客户端连接验证
+AUTH Password
+```
+
+# 性能测试
+
+执行此命令进行测试：`REDIS-BENCHMARK [Option] [OptionValue]`
+
+| 选项  | 描述                                           |
+| ----- | ---------------------------------------------- |
+| -h    | 服务器主机名，默认：127.0.0.1                  |
+| -p    | 服务器端口，默认：6379                         |
+| -s    | 服务器 scoket                                  |
+| -c    | 并发连接数，默认：50                           |
+| -n    | 指定请求数，默认：10000                        |
+| -d    | GET/SET 的 Val 的数据大小，单位为字节，默认：2 |
+| -k    | 1=keep alive，0=reconnect，默认：1             |
+| -r    | SET/GET/INCR 使用随机 Key，SADD 使用随机 Val   |
+| -P    | 通过管道传输 <numreq> 请求，默认：1            |
+| -q    | 强制退出 Redis，仅显示 query/sec 值            |
+| --csv | 以 CSV 格式输出                                |
+| -l    | 生成循环，永久执行测试                         |
+| -t    | 仅运行以逗号分隔的测试命令列表                 |
+| -I    | Idle 模式，仅打开 N 个 idle 连接并等待         |
+
+# 客户端连接
+
+服务器通过监听一个 TCP 端口或 Unix Socket 的方式接收客户端连接，连接建立后，Redis 内部进行以下操作：
+1. 客户端 socket 被设置为非阻塞模式，因为 Redis 在网络事件处理上采用**非阻塞多路复用模型**
+2. 为这个 scoket 也只 TCP_NODELAY 属性，禁用 Nagle 算法
+3. 创建一个可读的文件事件用于监听这个客户端 socket 的数据发送
+
+## 最大连接数
+
+2.6 版本前，最大连接数是被直接硬编码在代码中的，2.6 版本开始则可配置：`maxclients`，默认是 10000
+
+## 客户端命令
+
+| 命令                  | 描述                           |
+| --------------------- | ------------------------------ |
+| CLIENT LIST           | 已连接的客户端列表             |
+| CLENT SETNAME/GETNAME | 设置/获取当前连接名称          |
+| CLIENT PAUSE          | 挂起客户端连接，单位为**毫秒** |
+| CLIENT KILL           | 关闭客户端连接                 |
+
+# 管道技术
+
+Redis 是基于客户端-服务端模型以及请求/响应协议的 TCP 服务，一个请求一般会遵循以下步骤：
+1. 客户端向服务器发送一个查询请求，并监听 Socket 返回，通常以阻塞模式，等待服务器响应
+2. 服务器处理命令，将结果返回客户端
+
+管道技术可以在服务器未响应时，客户端继续发送请求，并最终一次性读取服务器的所有响应；管道技术可以显著提高性能
+
+# 分区
+
+分割数据到多个 Redis 实例中
+
+优势：
+* 利用多台计算机的内存，构造更大的数据库
+* 利用多核和多台计算机，扩展计算能力
+* 利用多台计算机和网络适配器，扩展网络带宽
+
+不足：
+* 涉及多个 Key 的操作通常是不被支持的，比如当两个 Set 被映射到不同 Redis 实例上时，不能对它们执行交集操作
+* 涉及多个 Key 的 Redis 事务不能使用
+* 数据处理较为复杂，比如说需要处理多个 rdb/aof 文件，并且从多个实例和主机备份持久化文件
+* 增加或删除容量比较复杂，Redis 集群大部署支持在运行时增加、删除节点的透明数据平衡的能力，但是类似于客户端分区、代理等其他系统则不支持这项特性
+
+## 分区类型
+
+* 范围分区
+    映射一定范围的对象到特定 Redis 实例，需要有一个区间范围到 Redis 实例的映射表，这个表要被管理，还需要各种对象的映射表，不是很好
+* 哈希分区
+    用哈希函数将 Key 转换为一个数字，根据 Redis 实例数量对其取模，映射到对应实例中
+
+# 订阅发布
+
+发布订阅(pub/sub)是一种消息通信模式：发送者(pub)发送消息，订阅者(sub)接收消息；  
+客户端可订阅任意数量的频道，一个频道可以被任意数量的客户端订阅，当某个客户端从某个频道发送消息时（发送者不需要订阅该频道），该频道的所有订阅者将收到消息  
+```
+//订阅频道
+SUBSCRIBE Channel1 Channel2 ...
+PSUBSCRIBE Pattern1 Pattern2 ...    //符合模式的频道
+//退订
+UNSUBSCRIBE Channel1 Channel2 ...
+PUNSUBSCRIBE Pattern1 Pattern2 ...  //符合模式的频道
+//发送消息
+PUBLISH Channel Msg
+```
+
+# 事务
+
+事务可以一次执行多个命令，所有命令都会序列化、按顺序地执行，不会被其它命令请求打断，有原子性；  
+事务经历 3 个阶段：开始事务，命令入队，执行事务；  
+若某个命令出现语法错误，即命令入队时就能发现的错误，事务将不会执行；若某个命令执行时出现错误，事务不会中断也不会回滚！  
+```
+MULTI       //开始一个事务
+...         //输入该事务中的多个命令
+DISCARD     //取消事务
+EXEC        //执行事务中的所有命令，取消对所有键的监视
+
+//监视指定的 Key，若其被修改或删除，则之后的一个事务无法执行
+WATCH Key1 Key2 ...
+//取消对所有键的监视，EXEC 命令同样有此作用，不管事务能不能执行
+UNWATCH
+```
