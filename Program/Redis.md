@@ -392,9 +392,22 @@ WATCH Key1 Key2 ...
 UNWATCH
 ```
 
+## 乐观锁
+
+```
+WATCH myKey
+
+val = GET myKey
+val = val + 1
+
+MULTI
+SET myKey $val
+EXEC
+```
+
 # 脚本
 
-Redis 采用 Lua 解释器来执行脚本
+Redis 采用 Lua 解释器来执行脚本，脚本也是一种事务
 ```
 EVAL Script NumKeys Key1 Key2 ... Arg1 Arg2 ...
 //实例
@@ -518,4 +531,4 @@ CONFIG SET save ""
     Redis 利用队列技术将并发访问变为串行访问，消除了传统数据库串行控制的开销；  
     Redis 对于多个客户端连接并不存在竞争，但是在客户端对 Redis 进行并发访问时会发生连接超时、数据转换错误、阻塞、客户端关闭连接等问题，这些问题均是由于客户端连接混乱造成，解决办法：
       1. 客户端角度，对连接进行池化，同时对客户端读写 Redis 操作采用内部锁 synchronized
-      2. 服务器角度，利用setnx实现锁
+      2. 服务器角度，利用 SETNX 实现锁
