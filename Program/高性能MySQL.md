@@ -986,3 +986,162 @@ LIMIT 关键字会在排序之后才应用！但 5.6 版本改进了，当只需
 返回结果给客户端是一个增量、逐步返回的过程，当开始生成第一条结果时，就开始逐步返回结果集了；  
 有两个好处：服务器无须存储过多结果，也不会因为要返回太多结果而消耗太多内存，也让客户端可以第一时间获得返回的结果；  
 结果集的每一行都会以一个满足 MySQL 客户端/服务器通信协议的封包发送，再通过 TCP 协议进行传输，传输过程中，可能对封包进行缓存然后批量传输
+
+## 6.5 查询优化器的局限性
+
+MySQL 的查询优化器对少部分查询无法做到最优，可通过改写查询来改善
+
+### 关联子查询
+
+MySQL 的子查询实现得很糟糕，最糟糕的一类是 WHERE 条件中包含 IN() 的子查询，优化器会将其转换为 EXISTS 的形式，即相关子查询，比如：
+```SQL
+--查询某个演员对应的所有电影
+SELECT * FROM film WHERE film_id IN(
+    SELECT film_id FROM film_actor WHERE actor_id = 1
+);
+--优化后
+SELECT * FROM film WHERE EXISTS(
+    SELECT * FROM film_actor WHERE actor_id = 1 AND film_actor.film_id = film.film_id
+);
+```
+
+此时子查询的 EXPLAIN 的 select_type 列为 "DEPENDENT SUBQUERY"，表示相关子查询；  
+可将上面的语句改写为 JOIN 的形式；或者用 GROUP_CONCAT() 函数在 IN() 中构造一个由逗号分隔的列表，有时会比 JOIN 更快
+
+* 8.0 的 MySQL 中测试发现，不是优化成 EXISTS，而是 JOIN，类似
+  ```SQL
+  SELECT f.* FROM film f JOIN film_actor fa 
+  WHERE f.film_id = fa.film_id AND fa.actor_id=1;
+  ```
+
+关联子查询不一定慢，需要实际测试
+
+### UNION 的限制
+
+若用 UNION 联合多个查询的结果，但只想取部分数据，除了要对 UNION 结果应用 LIMIT，也要对各子查询应用 LIMIT 来限制数量，否则所有数据会被取出放入临时表再进行过滤 
+
+### 索引合并优化
+
+在 5.0 以上版本中，若 WHERE 子句包含多个复杂条件，优化器可访问单个表的多个索引以合并和交叉过滤的方式来查找，但之前的版本不行
+
+### 等值传递
+
+等值传递有时带来额外消耗，例如有一个很大的 IN() 列表，且有 WHERE、ON 或 USING 子句将该列表的值与某表某列相关联，优化器会将 IN() 列表复制应用到其它所有关联的表中，各个表新增了过滤条件，可更高效地从存储引擎过滤数据，但因为列表很大，会导致优化和执行变慢
+
+### 并行执行
+
+MySQL 无法用多核来并行执行查询，很多其它关系数据库都可以
+
+### 哈希关联
+
+不支持哈希关联，所有关联都是嵌套循环关联，不过可建立哈希索引来曲线救国，如 Memory 引擎的索引都是哈希索引，关联就类似于哈希关联；MariaDB 实现了真哈希关联
+
+### 松散索引扫描
+
+不支持，无法按照不连续的方式扫描索引，MySQL 的索引扫描通常需要先定义一个**起点和终点**，不管需要数据多少，必须扫描这段索引所有条目；  
+5.0 以上版本，特殊场景可使用松散索引扫描，比如在分组查询中找分组中某列的最大值和最小值，这时 EXPLAIN 的 Extra 列为 "Using index for group-by"，表示使用松散索引扫描
+
+### 最大值最小值优化
+
+例如：  
+`SELECT MIN(actor_id) FROM actor WHERE name='zzz';`  
+因为 name 字段没有索引，会进行一次全表扫描，但如果能进行主键（actor_id）扫描，因为主键按大小顺序排序，第一个满足条件的行的值便是最小值，可惜 MySQL 这时只会全表扫描；可以移除 MIN()，然后改写为：  
+`SELECT actor_id FROM actor USE INDEX(PRIMARY) WHERE name='zzz' LIMIT 1;`
+
+### 在同一表上查询和更新
+
+MySQL 不允许对同一张表同时进行查询和更新，不是优化器的限制；
+```
+--报错
+UPDATE tb AS otb SET cnt = (
+    SELECT count(*) FROM tb AS itb 
+    WHERE itb.type = otb.type
+);
+
+--改正
+UPDATE tb INNER JOIN (
+    SELECT type, count(*) AS cnt FROM tb
+    GROUP BY type
+) AS der USING(type)
+SET tb.cnt = der.cnt;
+```
+改正后，子查询被当作临时表处理，会在 UPDATE 语句打开表之前完成
+
+## 6.6 查询优化器的 hint
+
+若对优化器选择的执行计划不满意，可使用优化器提供的提示（hint）来控制最终的执行计划；建议直接阅读官方手册，有些提示和版本有直接关系，可以使用的一些如下：
+* **HIGH_PIORITY/LOW_PRIORITY**:
+    当多个语句同时访问一个表时，告知优先级；**HIGH_PIORITY** 用于 SELECT 语句时，该语句会被调度到所有正在等待表锁以便修改数据的语句之前，还可用于 INSERT 语句，只是抵消全局 **LOW_PRIORITY** 设置对该语句的影响；  
+    **LOW_PRIORITY** 正好相反，只要队列中还有需要访问同一个表的语句，不管提交顺序先后，会使语句一直处于等待状态，可用于 SELECT, INSERT, UPDATE, DELETE；  
+    只对使用**表锁**的存储引擎有效，不要再 InnoDB 或其它有**细粒度锁机制和并发控制**的引擎中使用；这两个提示会导致并发插入被禁用，可能严重降低性能，使用需谨慎
+* **DELAYED**：
+    可用于 INSERT 和 REPLACE，该语句会被立即返回客户端，并将插入的行数据放入缓冲区，在表空闲时批量写入；日志系统很有用，或者其它需要写入大量数据但客户端无需等待完成的应用；有点引擎不支持，且会导致 LAST_INSERT_ID() 函数无法正常工作
+* **STRAGHT_JOIN**：
+    放在 SELECT 语句的 SELECT 关键字之后，或放在两个关联表名字之间；第一种方式使查询中所有表按在语句中出现的顺序关联，第二种方式则是关联前后两个表；两者都会使优化器无法重新排列表的关联顺序，对于关联顺序的组合太多的情况，可大大减少优化器的搜索空间，使 MySQL 不会花费大量时间在 **statistics** 状态
+* **SQL_SMALL_RESULT/SQL_BIG_RESULT**：
+    用于 SELECT 语句，告知对 GROUP BY 或 DISTINCT 查询如何使用临时表即排序，SMALL 表示结果集会很小，可将其放在内存中的索引临时表，以避免排序操作；BIG 则表示结果集很大，建议使用磁盘临时表进行排序
+* **SQL_BUFFER_RESULT**：
+    告知将查询结果放入临时表，并尽快释放表锁，需消耗更多内存
+* **SQL_CACHE/SQL_NO_CACHE**：
+    告知是否缓存结果集在查询缓存中
+* **SQL_CALC_FOUND_ROWS**：
+    不会告知优化器任何关于执行计划的信息，但会让返回的结果集包含更多信息，会计算除去 LIMIT 子句后，此查询返回结果集的总数；FOUND_ROW() 函数可获得此值
+* **FOR UPDATE/LOCK IN SHARE MODE**：
+    不是真正的优化器提示，控制 SELECT 语句的锁机制，只对实现**行级锁**的引擎有效，会对符合查询条件的数据行加锁；但 INSERT ... SELECT 不需要，默认就会加读锁；  
+    只有 InnoDB 内置支持这两个提示，InnoDB 无法在不访问主键的情况下排他地锁定行，因为行的版本信息保存在主键中；  
+    会使某些优化无法正常使用，比如索引覆盖扫描；不宜滥用
+* **USING INDEX/IGNORE INDEX/FORCE INDEX**：
+    告知使用或不适用哪些索引来查询记录，5.1 以后版本可用 FOR ORDER BY 和 FOR GROUP BY 指定是否对排序和分组有效；  
+    USING INDEX 和 FORCE INDEX 基本相同，但 FORCE INDEX 会告知全表扫描成本会远远大于索引扫描，哪怕实际上该索引用处不大，当优化器选择了错误索引，和因为某些原因要使用另一索引时，可用该提示
+
+5.0 以后版本还新增了一些参数控制优化器行为：
+* **optimizer_search_depth**：控制优化器在穷举执行计划时的限度，若查询长时间处于 **statistics** 状态，可考虑调低此参数
+* **optimizer_prune_level**：让优化器可根据需要扫描的行数来决定是否跳过某些执行计划，默认打开 ?
+* **optimizer_switch**：包含一些开启/关闭优化器特性的标志位
+
+## 6.7 优化特定类型的查询
+
+### COUNT()
+
+#### 作用
+
+COUNT() 有两个作用：统计某个列值的数量，统计行数；  
+在统计列值时要求列值**非空**（不统计 NULL），若在括号中指定列或列的表达式，则统计的是此表达式有值的结果数；  
+当 MySQL 确认括号内的表达式值不可能为空时，实际就是在统计行数，可用 COUNT(*)，* 为通配符，直接统计所有行数，性能也好；  
+
+#### MyISAM 的 COUNT()
+
+一个误解：MyISAM 的 COUNT() 函数总是很快，其实只有没有任何 WHERE 条件的 COUNT(*) 才很快，因为无需实际计算表的行数，MySQL 可利用存储引擎的特性直接获得这个值，若某列 col 不可能为空，COUNT(col) 会被优化为 COUNT(*)
+
+#### 简单优化
+
+利用 MyISAM 在 COUNT(*) 全表很快的特性，可加速一些特定条件的 COUNT() 查询；  
+
+统计某值的数量：COUNT(color = 'blue' OR NULL)
+
+复杂的可以使用汇总表，外部缓存等
+
+#### 使用近似值
+
+使用 EXPLAIN 不需要真正执行查询，成本很低，但可获取优化器估算的行数；  
+或者可简化过滤条件，删除 DISTINCT 这样的约束避免文件排序
+
+### 关联查询
+
+* 确保 ON 或 USING 子句中的列上有索引，一般只需在关联顺序中的第二个表的相应列上创建索引（优化器优化后的顺序）
+* 确保 GROUP BY 和 ORDER BY 中的表达式只涉及一个表中的列，才可能被 MySQL 使用索引来优化
+
+### 子查询
+
+尽量用关联查询代替，但不是绝对，特别是 5.6 以后版本
+
+### GROUP BY / DISTINCT
+
+很多场景下，MySQL 使用相同方法优化这两种查询，优化器在内部处理时会相互转让二者，都可用索引优化，这是最有效的；  
+无法使用索引时，GROUP BY 使用**临时表**或**文件排序**来做分组，可使用 SQL_BIG_RESULT/SQL_SMALL_RESULT 来控制使用哪种；  
+当对关联查询分组时，使用查找表的标识列分组效率较高（主键 ?）；  
+若未使用 ORDER BY，则使用 GROUP BY 时，结果集自动按分组字段排序，若不关心排序，又怕默认排序使用文件排序，影响性能，可使用 `ORDER BY NULL`；另外在 GROUP BY 子句中使用 DESC/ASC，可使结果集按需要的方向排序
+
+#### GROUP BY WITH ROLLUP
+
+...
