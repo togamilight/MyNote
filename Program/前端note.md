@@ -276,3 +276,19 @@ Session 基于 Cookie 运作，而 Ajax 默认是不传 Cookie 的，所以要�
             //这里不能设置 "*"，要写明发起 Ajax 请求的网站的域名，可从请求头的 Origin 属性获得，但 IE8 发出的请求没有这个属性，需要自己写明
             filterContext.HttpContext.Response.AddHeader("Access-Control-Allow-Origin", "origin");    
     ```
+
+### escape 和 encodeURI
+
+escape 对 0-255 以外的 unicode 值（比如中文）进行编码时输出 %u**** 格式，其余与 encodeURI 基本一致；  
+encodeURI 将所有特殊字符都转换成 utf-8 格式的 url 编码；  
+ASP.NET MVC 在接收参数时，会自动对参数进行一次相当于 js 的 decodeURI 的操作，而调用 Server.UrlDecode(string) 或 HttpUtility.UrlDecode(string) 方法，则相当于先进行 js 的 decodeURI 操作，再对 %u**** 格式字符进行 js 的 unescape 操作
+
+### jQuery Deferred
+
+#### then
+
+$.Deferred().then() 相当于 done()、 fail()、 progress() 的合体，可绑定这三种情况的回调函数（也可只绑定一两种），但其最大的作用是，若回调函数返回 Deferred 对象，则 then() 返回的也是 Deferred 对象，即可继续进行延迟操作
+```js
+//loadSelects 和 loadPageData 返回 ajax 对象
+loadSelects().then(loadPageData).then(function(){...});
+```

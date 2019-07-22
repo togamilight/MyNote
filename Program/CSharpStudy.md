@@ -4713,8 +4713,80 @@ $(".datepicker").datepicker().show(function (e) {
 ```
 
 
+# 深入理解 C# 扩展
 
+## 单例模式(懒汉式)
 
+单例模式应该遵循的原则：
+* **只有单一且无参的私有构造函数**：无参是因为多次获取单例但提供不同参数的话，会导致问题，若需要针对同样的参数得到同一个实例，不同参数得到不同的实例的话，可使用工厂模式；私有可防止其他类实例化它，也可防止其被子类化，子类化后每个子类生成一个实例违反了单例模式
+* **封闭类**：同样是防止其被子类化，所以不是必要的，但可能使 JIT 进行更好的优化
+* 一个静态变量，保存对单个实例的引用
+* 一个公共静态方法，用于获取对单个已创建实例的引用，并在必要时创建一个实例
+
+### 双重检查
+
+```CSharp
+public sealed class Singleton{
+  private static Singleton instance = null;
+  private static readonly object padlock = new object();
+
+  private Singleton(){}
+
+  public static Singleton Instance{
+    get{
+      //第一个检查确保不会每次都上锁
+      if(instance == null){
+        lock(padlock){
+          if(instance == null){
+            instance = new Singleton();
+          }
+        }
+      }
+      return instance;
+    }
+  }
+}
+```
+
+经典实现，但在 Java 中不好用，因为 Java 创建对象分为以下三步：  
+1 分配空间；2 在空间内创建对象；3 将空间引用赋值给变量  
+其中 2 依赖于 1，所以 2 必须在 1 之后，但 3 并不依赖于 2，JVM 可能对其重排序，使得 3 先于 2 执行，此时若其它线程获取该单例，intance 并不为 null，其将被返回，但其还未实际创建，是不安全、不可用的，会导致异常；解决方法是在 instance 声明处加上 volatile 关键字，禁止指令重排序（只在 Java 5 有效）；  
+虽然在更健壮的 .NET 2.0 内存模型中是安全的，但在 ECMA CLI 规范中不是，且不如后面的实现那么好，不建议使用
+
+### 内部类
+
+```CSharp
+public sealed class Singleton{
+  private Singleton(){}
+
+  public static Singleton Instance{ get{ return Nested.instance; } }
+
+  private class Nested{
+    static Nested(){}
+
+    internal static readonly Singleton instance = new Singleton();
+  }
+}
+```
+
+内部类必须添加空的静态构造方法，这样才能使编译器不将该类标记为 beforefieldinit，从而在第一次被引用后才初始化静态成员，而不是程序开始运行时就初始化；  
+内部类可访问外部类的私有成员，但反过来不行，所以内部类的 instance 字段不能为私有的
+
+### Lazy<T>
+
+```CSharp
+public sealed class Singleton{
+  private static readonly Lazy<Singleton> lazy = new Lazy<Singleton>(
+    () => new Singleton()
+  );
+
+  private Singleton(){}
+
+  public static Singleton Instance{ get{ return lazy.Value; } }
+}
+```
+
+.NET 4 以上可用
 
 # Tip
 
