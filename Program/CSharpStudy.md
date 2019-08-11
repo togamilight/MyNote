@@ -342,6 +342,7 @@ int y = x ?? 1;
 
 * 引用形参`ref`在传参之前必须明确赋值
 * 输出形参`out`传入时，在方法内部，最初是默认无赋值的，方法返回前必须明确赋值
+* ref/out 不能互相重载，因为其编译后是相同的，只是使用上不同
 * 数组形参`params int[] Array`，必须位于参数列表的最后一位，且只能有一个，可以接受任意个该类型参数形成数组
 * 具名参数：调用方法时`Method(参数名:值,...)`可以具体的给某个形参赋值。调用时具名参数必须写在所有不具名参数之后
 
@@ -3560,7 +3561,54 @@ var result = ents.OrderBy(x => x.score).Skip(1).Take(10).Select(
   x => new { rank = ents.Count(y => y.score > x.score) + 1}
 );
 ```
-    
+
+### Find/FirstOrDefault
+
+不管数据是否已加载到上下文，FirstOrDefault 方法都会执行一次数据库查询，但若已加载到上下文，并不会使用数据库较新的值来覆盖它；SingleOrDefault 类似，但每次执行的是 `SELECT TOP 2`，有多个则抛出异常；  
+Find 比较高效，优先从上下文获取数据，没有时才查询数据库，且可获取到上下文中未添加到数据库的数据
+
+### Include
+
+Include 方法可预加载导航属性，使用方法：`IQueryable<T>.Include("PropertyName[.PropertyName]" / x => x.Property[.Select(y => y.Property)])`
+
+一些限制：
+1. Include() 方法是一个在 IQueryable<T> 上的扩展方法；
+2. Include() 方法只能应用在最终的查询结果集上，当它被在 subquery（子查询）、join（连接）或者嵌套从句中，当生成命令树时，它将被忽略掉。在幕后，实体框架会把你的 LINQ 查询转换成一棵命令树，然后数据库提供者（database provider）将其处理并构建成一个用于数据库的 SQL 查询
+3. Include() 方法只能应用在实体类型的结果集上，如果表达式将结果投影到一个非实体类型的类型上,Include() 方法将被忽略。
+4. 在Include() 方法和最外面的操作之间，不能改变结果集的类型。例如，一个 group by 从句，改变结果集的类型。
+5. 用于 Include() 方法的查询路径表达式必须从最外层操作返回的类型中的导航属性开始，查询路径不能从任意点开始。
+
+#### 延缓加载导航属性
+
+当已获取过某些实体的数据，然后又想获取其导航属性的数据，如果在  DbSet 上用 Include，将会重新加载一遍已加载的实体的所有列，很不划算，可用以下方法
+```CSharp
+// 假设我们已经拥有一个employee
+var jill = context.Employees.Where(o => o.Name == "Jill Carpenter").First();
+//凭借Entry、Reference，Query和Include方法获取Department和Company数据，不用去查询底层的Employee表
+context.Entry(jill).Reference(x => x.Department).Query().Include(y => y.Company).Load();
+```
+
+#### 显式加载
+
+使用 Include() 方法为一个父实体返回所有的关联实体，但没有机会过滤和操作结果集，这时可用 Load() 进行显式加载
+
+```CSharp
+//使用Load()方法显式加载，给通过Include()获取的关联数据提供过滤的机会
+context.Entry(hotel)
+      .Collection(x => x.Rooms)
+      .Query()
+      .Include(y => y.Reservations)
+      .Where(y => y is ExecutiveSuite && y.Reservations.Any())
+      .Load();
+```
+
+`context.Entry(entity).Reference(x => x.Property).IsLoaded` 可判断一个导航属性是否已被加载，特别的，如果是一个集合，且用 Take() 方法只加载了一部分内容，则 IsLoaded 为 False
+
+#### 禁用默认延迟加载
+
+有两种方法：
+1. 设置 Context.Configuration 对象的 LazyLoadingEnabled 属性为 False。它会禁用上下文中所有实体对象的延迟加载。
+2. 在每个实体类中移除导航属性的 virtual 修饰关键字。这种方法会禁用相应实体的延迟加载，这样就能让你显式控制延迟加载。
 
 # 留言板系统
 
