@@ -872,3 +872,31 @@ public ActionResult CategoriesList(){
     return View();
 }
 ```
+
+# 十一、 WebAPI
+
+## REST
+
+Representational State Transfer（表述性状态传递）
+
+REST 原则：
+* AddressableResources（可访问的资源）：每一个资源都应该能被URI（唯一标识符）确定。
+* Simple and Uniform Interfaces（有一致接口）：REST是基于HTTP协议的，使用HTTP GET, POST, PUT, DELETE
+来执行操作。使得REST简单一致。
+* RepresentationOriented（面向表述）：资源的表现形式可以交换的。GET用来获取资源的某种表现形式，POST用来传递资源到服务器以至于底层资源能够被改变。Representation可以有很多种表现形式，比如XML、Json等。
+* Communicate Stateless（无状态通信）：一个应用程序可以拥有状态但是没有客户端会话数据存储在服务器。任何会话类型的数据应该在客户端保存和处理，只有在每次请求中按需传递到服务器。
+* Cacheable（可缓存）：客户端应该能够缓存响应以供后续使用。
+
+## WEB API 功能
+
+1. 支持 HTTP 动词 GET, POST, PUT, DELETE
+2. 响应包含 HTTP 状态码 和 Accept Header
+3. 响应被 WEB API 中的 `MediaTypeFormatter` 格式化为 JSON、XML 或任何想添加作为 `MediaTypeFormatter` 的格式
+4. 可接收和生成费面向对象的内容，比如图像，PDF 等
+5. 自动支持 `OData`，将 `[Queryable]` 特性添加到 Controller 的方法中，它将返回 `IQueryable` 结果，客户端可用该方法进行 OData 组合查询
+6. 可在 IIS 或应用程序中寄宿
+7. 支持 MVC 的许多功能，如 routing, controller, action result, filter, model binder, IOC container or dependency injection
+
+## AcceptVerbs
+
+让一个 Action 支持多种访问方法 `[AcceptVerbs("GET", "POST")]`
