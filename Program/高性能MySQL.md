@@ -1466,3 +1466,33 @@ MySQL 为每个字符串设置了“可转换性”，决定了值的字符集�
 * 当两个不同字符集的列用于关联两个表时，会尝试转换其中一列，导致无法使用该列上的索引
 * 若索引一个 UTF-8 字符集的列，MySQL 会假设每个字符都是三个字节，所以最长索引前缀限制会缩短为原来的三分之一，且无法使用索引覆盖扫描 ?
 * UTF-8 存储时，一个字符会用变长的字节数（1~3），但在 MySQL 的定长字符串中则按最长每个 3 字节来使用空间，变长字符串则按实际字节数
+
+
+# Tip
+
+## 变量
+
+分为局部变量和用户变量  
+MySQL 在存储过程中的变量为局部变量，用 DECLARE 声明，该变量的作用域为存储过程的 BENGIN-END 块内，名字不能包含`@` 
+`DECLARE var_name[,varname...] data_type [DEFAULT value;]` 
+`SELECT column,... INTO var_name,... FROM table WHERE ...;`
+用户变量以'@'开头，在当前连接中有效
+`SET  @var_name =|:= value`
+`SELECT @var_name:=column FROM table WHERE ...`
+
+## 存储过程示例（包含事务）
+
+```SQL
+CREATE DEFINER = `root`@`%` PROCEDURE `proc_name`(IN param1 VARCHAR(50) ...)
+BEGIN
+    DECLARE var1 VARCHAR(8) DEFAULT ""; --所有变量声明只能写在最前面
+    DECLARE t_error INTEGER DEFAULT 0;  --捕获事务执行时的异常
+    DECLARE CONTINUE HANDLER FOR SQLEXCEPTION SET t_error=1;
+    DECLARE ...;
+
+    START TRANSACTION;
+        ...
+    IF t_error <> 0 THEN ROLLBACK;
+    ELSE COMMIT; END IF;
+END;
+```
