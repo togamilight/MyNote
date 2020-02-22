@@ -292,3 +292,40 @@ $.Deferred().then() 相当于 done()、 fail()、 progress() 的合体，可绑�
 //loadSelects 和 loadPageData 返回 ajax 对象
 loadSelects().then(loadPageData).then(function(){...});
 ```
+
+### IOS H5问题
+
+#### 软键盘导致留白
+
+IOS 的软键盘在弹出后会将页面顶上去，收起时页面又不会弹回来，导致页面错误，下方出现一块空白，解决方法是在输入框失去焦点时（即软键盘收起），将页面滚动回去
+```JavaScript
+$(document).on("blur", "input, select, textarea", function(){
+  window.scrollTo(0, 0);
+});
+```
+
+#### 聚焦输入框页面放大
+
+输入框会有这种情况，好像是因为字体小于 16 px？总之直接禁用页面缩放
+```HTML
+<meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no">
+```
+
+#### 页面返回时不刷新
+
+ios 在网页返回时并不会重新用 ajax 获取数据，需要用 js 刷新页面；    
+应该在 `onpageshow` 事件而不是 `onload` 事件中执行刷新的代码，因为前者在每次加载页面时都会触发，而后者则只在第一次加载页面时触发，如果页面是从浏览器缓存中读取的则不会触发；  
+`PageTransitionEvent` 对象的 `persisted` 属性可以判断页面是否从浏览器缓存中读取，是则为 true，不过使用 `history.back()` 返回的页面还是为 false；  
+进一步的，可以用 `window.performance.navigation.type` 来判断： 
+* **0**：页面是通过点击链接，书签，表单提交，脚本操作或直接浏览器输入地址访问的
+* **1**：页面是通过点击刷新按钮，或 `location.reload()` 方法刷新访问的
+* **2**：页面是通过历史记录或前进后退访问的
+* **255**：其它
+
+```JavaScript
+window.addEventListener('pageshow', function(){
+  if(e.persisted || (window.performance && window.performance.navigation.type == 2)){
+    location.reload();
+  }
+}, false);
+```
