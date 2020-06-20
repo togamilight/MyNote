@@ -206,7 +206,7 @@ Action<object, EventArgs> act = delegate{};
 public event EventHandler Event = delegate{};	//会损失一点点性能
 ```
 
-* 对于一个捕获变量，只要还有任何委托实例引用它，它就会一直存在
+* 对于一个捕获变量，只要还有任何委托实例引用它，它就会一直存在（被捕获的局部变量不放在栈中，而由编译器创建的一个类来容纳）
 
 
 
@@ -5170,7 +5170,7 @@ SQL Server 在**插入/更新/删除**时，会创建 **Inserted 或 Deleted** �
 --插入
 INSERT INTO t1 OUTPUT Insert.Id VALUES (1, 2, 3);
 --删除
-DELETE FROM t1 OUTPYT Deleted.Id WHERE b = 2;
+DELETE FROM t1 OUTPUT Deleted.Id WHERE b = 2;
 --更新
 UPDATE t1 SET a = 2 OUTPUT Deleted.Id AS '更新前', Inserted.Id AS '更新后' WHERE c = 3;
 ```
